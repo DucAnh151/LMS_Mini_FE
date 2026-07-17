@@ -170,7 +170,7 @@ async function handleSubmit() {
 
   // Validate thumbnails for create
   if (!isEdit.value && newThumbnails.value.length === 0) {
-    ElMessage.warning('Vui lòng tải lên ít nhất 1 thumbnail')
+    ElMessage.warning(t('validate.thumbnailRequired'))
     return
   }
 
@@ -321,19 +321,19 @@ function handleClose() {
           >
             <img :src="thumb.url" alt="Thumbnail" />
             <div class="thumb-actions">
-              <el-tooltip content="Đặt làm chính" placement="top">
+              <el-tooltip :content="$t('btn.setPrimary')" placement="top">
                 <button type="button" class="thumb-action-btn" @click="setPrimaryThumbnail(thumb.id)">
                   <el-icon><StarFilled /></el-icon>
                 </button>
               </el-tooltip>
-              <el-tooltip content="Xóa" placement="top">
+              <el-tooltip :content="$t('btn.delete')" placement="top">
                 <button type="button" class="thumb-action-btn danger" @click="removeExistingThumbnail(thumb)">
                   <el-icon><Delete /></el-icon>
                 </button>
               </el-tooltip>
             </div>
             <div v-if="thumb.isPrimary || chosenPrimaryThumbnailId === thumb.id" class="primary-badge">
-              Chính
+              {{ $t('badge.primary') }}
             </div>
           </div>
         </div>
@@ -347,7 +347,7 @@ function handleClose() {
                 <el-icon><Delete /></el-icon>
               </button>
             </div>
-            <div class="new-badge">Mới</div>
+            <div class="new-badge">{{ $t('badge.new') }}</div>
           </div>
         </div>
 
@@ -362,7 +362,7 @@ function handleClose() {
         >
           <div class="upload-trigger">
             <el-icon :size="24"><UploadFilled /></el-icon>
-            <span>Thêm ảnh thumbnail</span>
+            <span>{{ $t('form.addThumbnail') }}</span>
           </div>
         </el-upload>
       </el-form-item>

@@ -13,25 +13,31 @@ const router = createRouter({
           path: 'students',
           name: 'Students',
           component: () => import('@/views/student/StudentList.vue'),
-          meta: { title: 'Học viên' }
+          meta: { titleKey: 'nav.students' }
+        },
+        {
+          path: 'students/:studentId',
+          name: 'StudentDetail',
+          component: () => import('@/views/student/StudentDetail.vue'),
+          meta: { titleKey: 'students.detail' }
         },
         {
           path: 'courses',
           name: 'Courses',
           component: () => import('@/views/course/CourseList.vue'),
-          meta: { title: 'Khóa học' }
+          meta: { titleKey: 'nav.courses' }
         },
         {
           path: 'courses/:courseId/lessons',
           name: 'Lessons',
           component: () => import('@/views/lesson/LessonList.vue'),
-          meta: { title: 'Bài học' }
+          meta: { titleKey: 'nav.lessons' }
         },
         {
           path: 'enrollments',
           name: 'Enrollments',
           component: () => import('@/views/enrollment/EnrollmentManager.vue'),
-          meta: { title: 'Đăng ký' }
+          meta: { titleKey: 'nav.enrollments' }
         }
       ]
     }

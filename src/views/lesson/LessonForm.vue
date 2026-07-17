@@ -3,6 +3,9 @@ import { ref, reactive, watch, nextTick } from 'vue'
 import { ElMessage } from 'element-plus'
 import { UploadFilled, Delete, StarFilled, VideoPlay, Picture, Document } from '@element-plus/icons-vue'
 import { getLesson, createLesson, updateLesson } from '@/api/lesson'
+import { useI18n } from '@/utils/i18n'
+
+const { t } = useI18n()
 
 const props = defineProps({
   visible: Boolean,
@@ -15,7 +18,7 @@ const emit = defineEmits(['update:visible', 'success'])
 const formRef = ref(null)
 const loading = ref(false)
 const isEdit = ref(false)
-const dialogTitle = ref('Thêm bài học mới')
+const dialogTitle = ref('')
 
 // Files
 const newVideos = ref([])
@@ -37,13 +40,13 @@ const formData = reactive({
 })
 
 const rules = {
-  title: [{ required: true, message: 'Vui lòng nhập tiêu đề', trigger: 'blur' }],
-  lessonCode: [{ required: true, message: 'Vui lòng nhập mã bài học', trigger: 'blur' }],
-  summary: [{ required: true, message: 'Vui lòng nhập tóm tắt', trigger: 'blur' }],
-  content: [{ required: true, message: 'Vui lòng nhập nội dung', trigger: 'blur' }],
-  orderIndex: [{ required: true, message: 'Vui lòng nhập thứ tự', trigger: 'blur' }],
-  durationInSeconds: [{ required: true, message: 'Vui lòng nhập thời lượng', trigger: 'blur' }],
-  lessonType: [{ required: true, message: 'Vui lòng chọn loại', trigger: 'change' }]
+  title: [{ required: true, message: () => t('lessonValidate.title'), trigger: 'blur' }],
+  lessonCode: [{ required: true, message: () => t('lessonValidate.code'), trigger: 'blur' }],
+  summary: [{ required: true, message: () => t('lessonValidate.summary'), trigger: 'blur' }],
+  content: [{ required: true, message: () => t('lessonValidate.content'), trigger: 'blur' }],
+  orderIndex: [{ required: true, message: () => t('lessonValidate.order'), trigger: 'blur' }],
+  durationInSeconds: [{ required: true, message: () => t('lessonValidate.duration'), trigger: 'blur' }],
+  lessonType: [{ required: true, message: () => t('lessonValidate.type'), trigger: 'change' }]
 }
 
 watch(() => props.visible, async (val) => {
@@ -51,11 +54,11 @@ watch(() => props.visible, async (val) => {
     resetForm()
     if (props.lessonId) {
       isEdit.value = true
-      dialogTitle.value = 'Cập nhật bài học'
+      dialogTitle.value = t('lessons.edit')
       await loadLesson(props.lessonId)
     } else {
       isEdit.value = false
-      dialogTitle.value = 'Thêm bài học mới'
+      dialogTitle.value = t('lessons.addNew')
     }
   }
 })
@@ -116,7 +119,7 @@ async function handleSubmit() {
   } catch { return }
 
   if (!isEdit.value && newThumbnails.value.length === 0) {
-    ElMessage.warning('Vui lòng tải lên ít nhất 1 thumbnail')
+    ElMessage.warning(t('lessonForm.thumbnailRequired'))
     return
   }
 
@@ -137,10 +140,10 @@ async function handleSubmit() {
       if (chosenPrimaryVideoId.value) fd.append('chosenPrimaryVideoId', chosenPrimaryVideoId.value)
       if (chosenPrimaryThumbnailId.value) fd.append('chosenPrimaryThumbnailId', chosenPrimaryThumbnailId.value)
       await updateLesson(props.lessonId, fd)
-      ElMessage.success('Cập nhật bài học thành công')
+      ElMessage.success(t('lessons.updateSuccess'))
     } else {
       await createLesson(props.courseId, fd)
-      ElMessage.success('Thêm bài học thành công')
+      ElMessage.success(t('lessons.addSuccess'))
     }
     emit('success')
   } catch (e) {
@@ -166,43 +169,43 @@ function handleClose() {
   >
     <el-form ref="formRef" :model="formData" :rules="rules" label-position="top" v-loading="loading">
       <div class="form-row">
-        <el-form-item label="Tiêu đề" prop="title" class="form-col">
-          <el-input v-model="formData.title" placeholder="Bài 1: Giới thiệu" id="input-lesson-title" />
+        <el-form-item :label="$t('lessonForm.title')" prop="title" class="form-col">
+          <el-input v-model="formData.title" :placeholder="$t('lessonForm.titlePlaceholder')" id="input-lesson-title" />
         </el-form-item>
-        <el-form-item label="Mã bài học" prop="lessonCode" class="form-col-sm">
-          <el-input v-model="formData.lessonCode" placeholder="L001" id="input-lesson-code" />
+        <el-form-item :label="$t('lessonForm.code')" prop="lessonCode" class="form-col-sm">
+          <el-input v-model="formData.lessonCode" :placeholder="$t('lessonForm.codePlaceholder')" id="input-lesson-code" />
         </el-form-item>
       </div>
 
-      <el-form-item label="Tóm tắt" prop="summary">
-        <el-input v-model="formData.summary" type="textarea" :rows="2" placeholder="Tóm tắt ngắn gọn..." id="input-lesson-summary" />
+      <el-form-item :label="$t('lessonForm.summary')" prop="summary">
+        <el-input v-model="formData.summary" type="textarea" :rows="2" :placeholder="$t('lessonForm.summaryPlaceholder')" id="input-lesson-summary" />
       </el-form-item>
 
-      <el-form-item label="Nội dung" prop="content">
-        <el-input v-model="formData.content" type="textarea" :rows="4" placeholder="Nội dung chi tiết..." id="input-lesson-content" />
+      <el-form-item :label="$t('lessonForm.content')" prop="content">
+        <el-input v-model="formData.content" type="textarea" :rows="4" :placeholder="$t('lessonForm.contentPlaceholder')" id="input-lesson-content" />
       </el-form-item>
 
       <div class="form-row">
-        <el-form-item label="Thứ tự" prop="orderIndex" class="form-col">
+        <el-form-item :label="$t('lessonForm.order')" prop="orderIndex" class="form-col">
           <el-input-number v-model="formData.orderIndex" :min="1" style="width: 100%" id="input-lesson-order" />
         </el-form-item>
-        <el-form-item label="Thời lượng (giây)" prop="durationInSeconds" class="form-col">
+        <el-form-item :label="$t('lessonForm.duration')" prop="durationInSeconds" class="form-col">
           <el-input-number v-model="formData.durationInSeconds" :min="1" :step="60" style="width: 100%" id="input-lesson-duration" />
         </el-form-item>
-        <el-form-item label="Loại bài học" prop="lessonType" class="form-col">
+        <el-form-item :label="$t('lessonForm.type')" prop="lessonType" class="form-col">
           <el-select v-model="formData.lessonType" style="width: 100%" id="select-lesson-type">
-            <el-option label="Video" value="VIDEO" />
-            <el-option label="Tài liệu" value="DOCUMENT" />
-            <el-option label="Quiz" value="QUIZ" />
+            <el-option :label="$t('lessonForm.typeVideo')" value="VIDEO" />
+            <el-option :label="$t('lessonForm.typeDocument')" value="DOCUMENT" />
+            <el-option :label="$t('lessonForm.typeQuiz')" value="QUIZ" />
           </el-select>
         </el-form-item>
       </div>
 
       <!-- File Uploads -->
-      <el-divider content-position="left">Tài nguyên</el-divider>
+      <el-divider content-position="left">{{ $t('lessonForm.resources') }}</el-divider>
 
       <!-- Thumbnails -->
-      <el-form-item label="Thumbnails">
+      <el-form-item :label="$t('lessonForm.thumbnails')">
         <div class="resource-section">
           <div class="file-grid">
             <div v-for="res in existingResources.thumbnails" :key="res.id"
@@ -212,18 +215,18 @@ function handleClose() {
                 <button type="button" @click="chosenPrimaryThumbnailId = res.id" class="file-btn"><el-icon><StarFilled /></el-icon></button>
                 <button type="button" @click="removeExistingResource('thumbnails', res)" class="file-btn danger"><el-icon><Delete /></el-icon></button>
               </div>
-              <div v-if="res.isPrimary || chosenPrimaryThumbnailId === res.id" class="badge primary">Chính</div>
+              <div v-if="res.isPrimary || chosenPrimaryThumbnailId === res.id" class="badge primary">{{ $t('badge.primary') }}</div>
             </div>
             <div v-for="(f, i) in newThumbnails" :key="'nt'+i" class="file-item new-file">
               <img :src="f.preview" alt="New" />
               <div class="file-overlay">
                 <button type="button" @click="removeNewFile(newThumbnails, i)" class="file-btn danger"><el-icon><Delete /></el-icon></button>
               </div>
-              <div class="badge new">Mới</div>
+              <div class="badge new">{{ $t('badge.new') }}</div>
             </div>
           </div>
           <el-upload :auto-upload="false" :show-file-list="false" accept="image/*" multiple @change="(f) => addFile(newThumbnails, f)">
-            <el-button size="small"><el-icon><Picture /></el-icon> Thêm ảnh</el-button>
+            <el-button size="small"><el-icon><Picture /></el-icon> {{ $t('lessonForm.addImage') }}</el-button>
           </el-upload>
         </div>
       </el-form-item>
@@ -236,52 +239,52 @@ function handleClose() {
               :class="{ 'is-primary': res.isPrimary || chosenPrimaryVideoId === res.id }">
               <el-icon><VideoPlay /></el-icon>
               <span class="file-name">{{ res.fileName }}</span>
-              <el-tag v-if="res.isPrimary || chosenPrimaryVideoId === res.id" type="info" size="small">Chính</el-tag>
+              <el-tag v-if="res.isPrimary || chosenPrimaryVideoId === res.id" type="info" size="small">{{ $t('badge.primary') }}</el-tag>
               <div class="file-list-actions">
-                <el-button size="small" text @click="chosenPrimaryVideoId = res.id">Đặt chính</el-button>
-                <el-button size="small" text type="danger" @click="removeExistingResource('videos', res)">Xóa</el-button>
+                <el-button size="small" text @click="chosenPrimaryVideoId = res.id">{{ $t('btn.setPrimary') }}</el-button>
+                <el-button size="small" text type="danger" @click="removeExistingResource('videos', res)">{{ $t('btn.delete') }}</el-button>
               </div>
             </div>
             <div v-for="(f, i) in newVideos" :key="'nv'+i" class="file-list-item new-file">
               <el-icon><VideoPlay /></el-icon>
               <span class="file-name">{{ f.name }}</span>
-              <el-tag type="success" size="small">Mới</el-tag>
-              <el-button size="small" text type="danger" @click="removeNewFile(newVideos, i)">Xóa</el-button>
+              <el-tag type="success" size="small">{{ $t('badge.new') }}</el-tag>
+              <el-button size="small" text type="danger" @click="removeNewFile(newVideos, i)">{{ $t('btn.delete') }}</el-button>
             </div>
           </div>
           <el-upload :auto-upload="false" :show-file-list="false" accept="video/*" multiple @change="(f) => addFile(newVideos, f)">
-            <el-button size="small"><el-icon><VideoPlay /></el-icon> Thêm video</el-button>
+            <el-button size="small"><el-icon><VideoPlay /></el-icon> {{ $t('lessonForm.addVideo') }}</el-button>
           </el-upload>
         </div>
       </el-form-item>
 
       <!-- Documents -->
-      <el-form-item label="Tài liệu">
+      <el-form-item :label="$t('detail.documents')">
         <div class="resource-section">
           <div class="file-list">
             <div v-for="res in existingResources.documents" :key="res.id" class="file-list-item">
               <el-icon><Document /></el-icon>
               <span class="file-name">{{ res.fileName }}</span>
-              <el-button size="small" text type="danger" @click="removeExistingResource('documents', res)">Xóa</el-button>
+              <el-button size="small" text type="danger" @click="removeExistingResource('documents', res)">{{ $t('btn.delete') }}</el-button>
             </div>
             <div v-for="(f, i) in newDocuments" :key="'nd'+i" class="file-list-item new-file">
               <el-icon><Document /></el-icon>
               <span class="file-name">{{ f.name }}</span>
-              <el-tag type="success" size="small">Mới</el-tag>
-              <el-button size="small" text type="danger" @click="removeNewFile(newDocuments, i)">Xóa</el-button>
+              <el-tag type="success" size="small">{{ $t('badge.new') }}</el-tag>
+              <el-button size="small" text type="danger" @click="removeNewFile(newDocuments, i)">{{ $t('btn.delete') }}</el-button>
             </div>
           </div>
           <el-upload :auto-upload="false" :show-file-list="false" accept=".pdf,.doc,.docx,.ppt,.pptx" multiple @change="(f) => addFile(newDocuments, f)">
-            <el-button size="small"><el-icon><Document /></el-icon> Thêm tài liệu</el-button>
+            <el-button size="small"><el-icon><Document /></el-icon> {{ $t('lessonForm.addDocument') }}</el-button>
           </el-upload>
         </div>
       </el-form-item>
     </el-form>
 
     <template #footer>
-      <el-button @click="handleClose" id="btn-cancel-lesson">Hủy</el-button>
+      <el-button @click="handleClose" id="btn-cancel-lesson">{{ $t('btn.cancel') }}</el-button>
       <el-button type="primary" @click="handleSubmit" :loading="loading" id="btn-submit-lesson">
-        {{ isEdit ? 'Cập nhật' : 'Thêm mới' }}
+        {{ isEdit ? $t('btn.update') : $t('btn.add') }}
       </el-button>
     </template>
   </el-dialog>

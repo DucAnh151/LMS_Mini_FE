@@ -6,7 +6,10 @@ import { getCourseStudents } from '@/api/course'
 import { deleteEnrollment, updateEnrollment } from '@/api/enrollment'
 import { getUnregisteredCourses } from '@/api/student'
 import { getCourses } from '@/api/course'
-import { formatDate, genderLabels, statusTagType } from '@/utils/helpers'
+import { formatDate, statusTagType, getGenderLabel } from '@/utils/helpers'
+import { useI18n } from '@/utils/i18n'
+
+const { t } = useI18n()
 
 const props = defineProps({
   visible: Boolean,
@@ -68,12 +71,12 @@ function handleClose() {
 async function handleDeleteEnrollment(row) {
   try {
     await ElMessageBox.confirm(
-      `Hủy đăng ký học viên "${row.studentName}" khỏi khóa học "${props.courseName}"?`,
-      'Hủy đăng ký',
-      { type: 'warning', confirmButtonText: 'Hủy đăng ký', cancelButtonText: 'Đóng' }
+      t('enrollments.cancelConfirm', { name: row.studentName, course: props.courseName }),
+      t('enrollments.cancelTitle'),
+      { type: 'warning', confirmButtonText: t('enrollments.cancelBtn'), cancelButtonText: t('btn.close') }
     )
     await deleteEnrollment(row.enrollmentId)
-    ElMessage.success('Đã hủy đăng ký thành công')
+    ElMessage.success(t('enrollments.cancelSuccess'))
     fetchData()
     emit('change')
   } catch (e) {
@@ -111,13 +114,13 @@ async function openTransferDialog(row) {
 
 async function handleTransfer() {
   if (!transferNewCourseId.value) {
-    ElMessage.warning('Vui lòng chọn khóa học mới')
+    ElMessage.warning(t('enrollments.selectCourseWarning'))
     return
   }
   transferLoading.value = true
   try {
     await updateEnrollment(transferRow.value.enrollmentId, transferNewCourseId.value)
-    ElMessage.success('Chuyển khóa học thành công')
+    ElMessage.success(t('enrollments.transferSuccess'))
     transferDialogVisible.value = false
     fetchData()
     emit('change')
@@ -132,7 +135,7 @@ async function handleTransfer() {
 <template>
   <el-drawer
     :model-value="visible"
-    :title="`Học viên — ${courseName}`"
+    :title="$t('courseStudents.title', { name: courseName })"
     direction="rtl"
     size="750px"
     @close="handleClose"
@@ -142,46 +145,46 @@ async function handleTransfer() {
     <div style="margin-bottom: 16px; display: flex; gap: 12px;">
       <el-input
         v-model="queryParams.keyword"
-        placeholder="Tìm theo tên, email..."
+        :placeholder="$t('courseStudents.searchPlaceholder')"
         clearable
         @clear="handleSearch"
         @keyup.enter="handleSearch"
         style="flex: 1"
         id="input-search-course-student"
       />
-      <el-button type="primary" @click="handleSearch">Tìm</el-button>
+      <el-button type="primary" @click="handleSearch">{{ $t('btn.find') }}</el-button>
     </div>
 
     <!-- Table -->
     <el-table :data="tableData" v-loading="loading" stripe style="width: 100%" id="table-course-students">
-      <el-table-column prop="studentName" label="Tên học viên" min-width="150">
+      <el-table-column prop="studentName" :label="$t('col.studentName')" min-width="150">
         <template #default="{ row }">
           <span class="text-highlight">{{ row.studentName }}</span>
         </template>
       </el-table-column>
-      <el-table-column prop="studentEmail" label="Email" min-width="170" />
-      <el-table-column prop="studentPhone" label="SĐT" width="120" />
-      <el-table-column prop="gender" label="Giới tính" width="85">
+      <el-table-column prop="studentEmail" :label="$t('col.email')" min-width="170" />
+      <el-table-column prop="studentPhone" :label="$t('col.phone')" width="120" />
+      <el-table-column prop="gender" :label="$t('col.gender')" width="85">
         <template #default="{ row }">
-          {{ genderLabels[row.gender] || row.gender }}
+          {{ getGenderLabel(row.gender) }}
         </template>
       </el-table-column>
-      <el-table-column prop="enrollmentDate" label="Ngày ĐK" width="100">
+      <el-table-column prop="enrollmentDate" :label="$t('col.enrollDate')" width="100">
         <template #default="{ row }">
           {{ formatDate(row.enrollmentDate) }}
         </template>
       </el-table-column>
-      <el-table-column prop="status" label="TT" width="80" align="center">
+      <el-table-column prop="status" :label="$t('col.statusShort')" width="80" align="center">
         <template #default="{ row }">
           <el-tag :type="statusTagType[row.status]" size="small" round>
-            {{ row.status === 'ACTIVE' ? 'HĐ' : 'Xóa' }}
+            {{ row.status === 'ACTIVE' ? $t('status.activeShort') : $t('status.deletedShort') }}
           </el-tag>
         </template>
       </el-table-column>
-      <el-table-column label="Hành động" width="120" align="center" fixed="right">
+      <el-table-column :label="$t('col.actions')" width="120" align="center" >
         <template #default="{ row }">
           <div class="action-buttons" v-if="row.status === 'ACTIVE'">
-            <el-tooltip content="Chuyển khóa" placement="top">
+            <el-tooltip :content="$t('enrollments.transferCourse')" placement="top">
               <el-button
                 type="warning"
                 :icon="Switch"
@@ -190,7 +193,7 @@ async function handleTransfer() {
                 @click="openTransferDialog(row)"
               />
             </el-tooltip>
-            <el-tooltip content="Hủy đăng ký" placement="top">
+            <el-tooltip :content="$t('enrollments.cancelEnroll')" placement="top">
               <el-button
                 type="danger"
                 :icon="Delete"
@@ -220,7 +223,7 @@ async function handleTransfer() {
     <!-- Transfer Dialog (nested in drawer) -->
     <el-dialog
       v-model="transferDialogVisible"
-      title="Chuyển khóa học"
+      :title="$t('enrollments.transferTitle')"
       width="480px"
       :close-on-click-modal="false"
       append-to-body
@@ -228,19 +231,19 @@ async function handleTransfer() {
     >
       <div class="transfer-info" v-if="transferRow">
         <div class="transfer-detail">
-          <span class="transfer-label">Học viên:</span>
+          <span class="transfer-label">{{ $t('enrollments.student') }}</span>
           <span class="transfer-value">{{ transferRow.studentName }}</span>
         </div>
         <div class="transfer-detail">
-          <span class="transfer-label">Từ khóa học:</span>
+          <span class="transfer-label">{{ $t('enrollments.transferFrom') }}</span>
           <span class="transfer-value">{{ courseName }}</span>
         </div>
       </div>
       <el-form label-position="top" style="margin-top: 16px;">
-        <el-form-item label="Chuyển sang khóa học">
+        <el-form-item :label="$t('enrollments.transferTo')">
           <el-select
             v-model="transferNewCourseId"
-            placeholder="Chọn khóa học mới"
+            :placeholder="$t('enrollments.selectNewCourse')"
             style="width: 100%"
             filterable
             id="select-transfer-course-drawer"
@@ -255,9 +258,9 @@ async function handleTransfer() {
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="transferDialogVisible = false">Hủy</el-button>
+        <el-button @click="transferDialogVisible = false">{{ $t('btn.cancel') }}</el-button>
         <el-button type="primary" @click="handleTransfer" :loading="transferLoading">
-          Chuyển khóa học
+          {{ $t('btn.transfer') }}
         </el-button>
       </template>
     </el-dialog>

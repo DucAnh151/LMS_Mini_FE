@@ -1,3 +1,5 @@
+import { getTranslation } from '@/utils/i18n'
+
 /**
  * Format date string from yyyy-MM-dd to dd/MM/yyyy
  */
@@ -77,8 +79,18 @@ export function buildFormData(data) {
 }
 
 /**
- * Gender label map
+ * Gender label map — i18n aware
  */
+export function getGenderLabel(gender) {
+  const map = {
+    MALE: getTranslation('gender.male'),
+    FEMALE: getTranslation('gender.female'),
+    OTHER: getTranslation('gender.other')
+  }
+  return map[gender] || gender
+}
+
+// Static fallback for backward compatibility (used in views that don't yet use i18n)
 export const genderLabels = {
   MALE: 'Nam',
   FEMALE: 'Nữ',
@@ -86,8 +98,18 @@ export const genderLabels = {
 }
 
 /**
- * Course level label map
+ * Course level label map — i18n aware
  */
+export function getLevelLabel(level) {
+  const map = {
+    BEGINNER: getTranslation('level.beginner'),
+    INTERMEDIATE: getTranslation('level.intermediate'),
+    ADVANCED: getTranslation('level.advanced')
+  }
+  return map[level] || level
+}
+
+// Static fallback
 export const levelLabels = {
   BEGINNER: 'Cơ bản',
   INTERMEDIATE: 'Trung cấp',
@@ -112,8 +134,18 @@ export const statusTagType = {
 }
 
 /**
- * Lesson type labels
+ * Lesson type labels — i18n aware
  */
+export function getLessonTypeLabel(type) {
+  const map = {
+    VIDEO: getTranslation('lessonType.video'),
+    DOCUMENT: getTranslation('lessonType.document'),
+    QUIZ: getTranslation('lessonType.quiz')
+  }
+  return map[type] || type
+}
+
+// Static fallback
 export const lessonTypeLabels = {
   VIDEO: 'Video',
   DOCUMENT: 'Tài liệu',

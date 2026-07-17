@@ -2,12 +2,14 @@
 import { ref, onMounted, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { ArrowLeft, Plus, Delete, Edit, View, VideoPlay, Picture, Document, Refresh } from '@element-plus/icons-vue'
+import { ArrowLeft, Plus, Delete, Edit, VideoPlay, Picture, Document, View, Refresh } from '@element-plus/icons-vue'
 import { getLessons, getLesson, deleteLesson, restoreLesson } from '@/api/lesson'
 import { getCourse } from '@/api/course'
-import { formatDuration, lessonTypeLabels, statusTagType, levelLabels } from '@/utils/helpers'
+import { formatDuration, statusTagType, getLessonTypeLabel, getLevelLabel } from '@/utils/helpers'
+import { useI18n } from '@/utils/i18n'
 import LessonForm from './LessonForm.vue'
 
+const { t } = useI18n()
 const route = useRoute()
 const router = useRouter()
 const courseId = computed(() => Number(route.params.courseId))
@@ -23,28 +25,10 @@ const videoPreviewVisible = ref(false)
 const videoPreviewUrl = ref('')
 const videoPreviewTitle = ref('')
 
-
+// Lesson detail dialog
 const detailVisible = ref(false)
-const detailData = ref(null)
 const detailLoading = ref(false)
-
-async function handleViewDetail(lesson) {
-  detailVisible.value = true
-  detailLoading.value = true
-  try {
-    const res = await getLesson(lesson.id)
-    detailData.value = res.data
-  } catch (e) {
-    console.error(e)
-  } finally {
-    detailLoading.value = false
-  }
-}
-
-function closeDetail() {
-  detailVisible.value = false
-  detailData.value = null
-}
+const detailData = ref(null)
 
 async function fetchLessons() {
   loading.value = true
@@ -87,15 +71,32 @@ function handleFormSuccess() {
   fetchLessons()
 }
 
+// Soft delete lesson
 async function handleDelete(lesson) {
   try {
     await ElMessageBox.confirm(
-      `Xác nhận xóa bài học "${lesson.title}"?`,
-      'Xóa bài học',
-      { type: 'warning', confirmButtonText: 'Xóa', cancelButtonText: 'Hủy' }
+      t('lessons.confirmDelete', { title: lesson.title }),
+      t('msg.confirmDelete'),
+      { type: 'warning', confirmButtonText: t('btn.delete'), cancelButtonText: t('btn.cancel') }
     )
     await deleteLesson(lesson.id)
-    ElMessage.success('Đã xóa bài học')
+    ElMessage.success(t('lessons.deleted'))
+    fetchLessons()
+  } catch (e) {
+    if (e !== 'cancel') console.error(e)
+  }
+}
+
+// Restore lesson
+async function handleRestore(lesson) {
+  try {
+    await ElMessageBox.confirm(
+      t('lessons.confirmRestore', { title: lesson.title }),
+      t('btn.restore'),
+      { type: 'info', confirmButtonText: t('btn.restore'), cancelButtonText: t('btn.cancel') }
+    )
+    await restoreLesson(lesson.id)
+    ElMessage.success(t('lessons.restored'))
     fetchLessons()
   } catch (e) {
     if (e !== 'cancel') console.error(e)
@@ -127,6 +128,32 @@ function closeVideoPreview() {
   videoPreviewUrl.value = ''
   videoPreviewTitle.value = ''
 }
+
+// View lesson detail (videos + documents)
+async function handleViewDetail(lesson) {
+  detailVisible.value = true
+  detailLoading.value = true
+  detailData.value = null
+  try {
+    const res = await getLesson(lesson.id)
+    detailData.value = res.data
+  } catch (e) {
+    console.error(e)
+    ElMessage.error(t('lessons.loadError'))
+  } finally {
+    detailLoading.value = false
+  }
+}
+
+function playDetailVideo(video) {
+  videoPreviewUrl.value = video.url
+  videoPreviewTitle.value = video.fileName || 'Video'
+  videoPreviewVisible.value = true
+}
+
+function openDocument(doc) {
+  window.open(doc.url, '_blank')
+}
 </script>
 
 <template>
@@ -135,23 +162,23 @@ function closeVideoPreview() {
     <div class="page-header">
       <div class="page-header-left">
         <el-button :icon="ArrowLeft" @click="goBack" class="back-btn" id="btn-back-courses">
-          Quay lại
+          {{ $t('btn.back') }}
         </el-button>
         <div>
           <h1 class="page-title">
-            <span class="gradient-text">Bài học</span>
+            <span class="gradient-text">{{ $t('lessons.title') }}</span>
           </h1>
           <p class="page-subtitle" v-if="courseInfo">
-            Khóa học: <strong>{{ courseInfo.name }}</strong>
+            {{ $t('nav.courses') }}: <strong>{{ courseInfo.name }}</strong>
             <el-tag :type="courseInfo.level ? (courseInfo.level === 'BEGINNER' ? 'success' : courseInfo.level === 'INTERMEDIATE' ? 'warning' : 'danger') : 'info'" size="small" round style="margin-left: 8px">
-              {{ levelLabels[courseInfo.level] || courseInfo.level }}
+              {{ getLevelLabel(courseInfo.level) }}
             </el-tag>
           </p>
         </div>
       </div>
       <div class="page-header-right">
         <el-button type="primary" :icon="Plus" @click="handleCreate" id="btn-create-lesson">
-          Thêm bài học
+          {{ $t('lessons.add') }}
         </el-button>
       </div>
     </div>
@@ -159,9 +186,9 @@ function closeVideoPreview() {
     <!-- Lessons List -->
     <div v-loading="loading" class="lessons-grid">
       <div v-if="lessons.length === 0 && !loading" class="empty-state card-container">
-        <el-empty description="Chưa có bài học nào">
+        <el-empty :description="$t('lessons.noLessons')">
           <el-button type="primary" :icon="Plus" @click="handleCreate">
-            Thêm bài học đầu tiên
+            {{ $t('btn.addFirstLesson') }}
           </el-button>
         </el-empty>
       </div>
@@ -170,6 +197,7 @@ function closeVideoPreview() {
         v-for="lesson in lessons"
         :key="lesson.id"
         class="lesson-card card-container"
+        :class="{ 'is-deleted': lesson.status !== 'ACTIVE' }"
       >
         <div class="lesson-card-inner">
           <!-- Thumbnail -->
@@ -190,7 +218,7 @@ function closeVideoPreview() {
             <div class="order-badge">{{ lesson.orderIndex }}</div>
             <!-- Type badge -->
             <div class="type-badge">
-              {{ lessonTypeLabels[lesson.lessonType] || lesson.lessonType }}
+              {{ getLessonTypeLabel(lesson.lessonType) }}
             </div>
           </div>
 
@@ -199,7 +227,7 @@ function closeVideoPreview() {
             <div class="lesson-header-row">
               <h3 class="lesson-title">{{ lesson.title }}</h3>
               <el-tag :type="statusTagType[lesson.status]" size="small" round>
-                {{ lesson.status === 'ACTIVE' ? 'HĐ' : 'Xóa' }}
+                {{ lesson.status === 'ACTIVE' ? $t('status.activeShort') : $t('status.deletedShort') }}
               </el-tag>
             </div>
             <p class="lesson-code">{{ lesson.lessonCode }}</p>
@@ -214,18 +242,22 @@ function closeVideoPreview() {
 
           <!-- Actions -->
           <div class="lesson-actions">
-            <el-tooltip content="Xem chi tiết" placement="top">
+            <el-tooltip :content="$t('btn.view')" placement="top">
               <el-button type="info" :icon="View" size="small" circle @click="handleViewDetail(lesson)" />
             </el-tooltip>
-            <el-tooltip content="Sửa" placement="top">
+            <el-tooltip :content="$t('btn.edit')" placement="top">
               <el-button type="primary" :icon="Edit" size="small" circle @click="handleEdit(lesson)" />
             </el-tooltip>
-            <el-tooltip v-if="lesson.status === 'ACTIVE'" content="Xóa" placement="top">
-              <el-button type="danger" :icon="Delete" size="small" circle @click="handleDelete(lesson)" />
-            </el-tooltip>
-            <el-tooltip v-else content="Khôi phục" placement="top">
-              <el-button type="success" :icon="Refresh" size="small" circle @click="handleRestore(lesson)" />
-            </el-tooltip>
+            <template v-if="lesson.status === 'ACTIVE'">
+              <el-tooltip :content="$t('btn.delete')" placement="top">
+                <el-button type="danger" :icon="Delete" size="small" circle @click="handleDelete(lesson)" />
+              </el-tooltip>
+            </template>
+            <template v-else>
+              <el-tooltip :content="$t('btn.restore')" placement="top">
+                <el-button type="success" :icon="Refresh" size="small" circle @click="handleRestore(lesson)" />
+              </el-tooltip>
+            </template>
           </div>
         </div>
       </div>
@@ -257,18 +289,84 @@ function closeVideoPreview() {
           autoplay
           class="preview-video"
         >
-          Trình duyệt không hỗ trợ phát video.
+          {{ $t('lessons.videoUnsupported') }}
         </video>
       </div>
     </el-dialog>
+
+    <!-- Lesson Detail Dialog -->
     <el-dialog
       v-model="detailVisible"
-      :title="detailData?.title || 'Chi tiết bài học'"
+      :title="$t('lessons.detail')"
       width="700px"
-      @close="closeDetail"
+      :close-on-click-modal="true"
       id="dialog-lesson-detail"
-      v-loading="detailLoading"
     >
+      <div v-loading="detailLoading" class="lesson-detail-content">
+        <template v-if="detailData">
+          <!-- Basic info -->
+          <div class="detail-section">
+            <div class="detail-header-row">
+              <h3>{{ detailData.title }}</h3>
+              <el-tag :type="statusTagType[detailData.status]" size="small" round>
+                {{ detailData.status === 'ACTIVE' ? $t('status.active') : $t('status.deleted') }}
+              </el-tag>
+            </div>
+            <p class="detail-code">{{ detailData.lessonCode }}</p>
+            <p class="detail-summary" v-if="detailData.summary">{{ detailData.summary }}</p>
+            <p class="detail-body" v-if="detailData.content">{{ detailData.content }}</p>
+          </div>
+
+          <!-- Videos -->
+          <div class="detail-section" v-if="detailData.videos && detailData.videos.length > 0">
+            <h4 class="section-title">🎬 {{ $t('detail.videos') }}</h4>
+            <div class="resource-list">
+              <div
+                v-for="video in detailData.videos"
+                :key="video.id"
+                class="resource-item clickable"
+                @click="playDetailVideo(video)"
+              >
+                <el-icon :size="18" color="#667eea"><VideoPlay /></el-icon>
+                <span class="resource-name">{{ video.fileName }}</span>
+                <el-tag v-if="video.isPrimary" type="info" size="small">{{ $t('badge.primary') }}</el-tag>
+                <el-button type="primary" size="small" text>{{ $t('btn.play') }}</el-button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Documents -->
+          <div class="detail-section" v-if="detailData.documents && detailData.documents.length > 0">
+            <h4 class="section-title">📄 {{ $t('detail.documents') }}</h4>
+            <div class="resource-list">
+              <div
+                v-for="doc in detailData.documents"
+                :key="doc.id"
+                class="resource-item clickable"
+                @click="openDocument(doc)"
+              >
+                <el-icon :size="18" color="#2dce89"><Document /></el-icon>
+                <span class="resource-name">{{ doc.fileName }}</span>
+                <el-button type="success" size="small" text>↗ {{ $t('detail.downloadDoc') }}</el-button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Thumbnails -->
+          <div class="detail-section" v-if="detailData.thumbnails && detailData.thumbnails.length > 0">
+            <h4 class="section-title">🖼️ Thumbnails</h4>
+            <div class="thumb-preview-grid">
+              <div v-for="thumb in detailData.thumbnails" :key="thumb.id" class="thumb-preview-item">
+                <img :src="thumb.url" alt="Thumbnail" />
+                <div v-if="thumb.isPrimary" class="thumb-primary-badge">{{ $t('badge.primary') }}</div>
+              </div>
+            </div>
+          </div>
+        </template>
+      </div>
+      <template #footer>
+        <el-button @click="detailVisible = false">{{ $t('btn.close') }}</el-button>
+      </template>
     </el-dialog>
   </div>
 </template>
@@ -326,6 +424,10 @@ function closeVideoPreview() {
 .lesson-card:hover {
   transform: translateY(-2px);
   box-shadow: var(--shadow-glow);
+}
+
+.lesson-card.is-deleted {
+  opacity: 0.6;
 }
 
 .lesson-card-inner {
@@ -438,11 +540,14 @@ function closeVideoPreview() {
 
 .lesson-actions {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   gap: 8px;
-  padding: 16px;
-  justify-content: center;
-  border-left: 1px solid var(--border-color-light);
+  padding: 0 20px 16px 0;
+  justify-content: flex-end;
+  align-items: flex-end;
+  align-self: flex-end;
+  margin-left: auto;
+  flex-shrink: 0;
 }
 
 .empty-state {
@@ -485,12 +590,127 @@ function closeVideoPreview() {
   object-fit: contain;
 }
 
-.lesson-detail { display: flex; flex-direction: column; gap: 8px; }
-.detail-meta { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; }
-.detail-content-text { color: var(--text-secondary); white-space: pre-line; }
-.detail-video { width: 100%; max-height: 300px; border-radius: var(--border-radius-sm); margin-bottom: 8px; }
-.detail-thumb-grid { display: flex; gap: 8px; flex-wrap: wrap; }
-.detail-thumb-img { width: 90px; height: 90px; object-fit: cover; border-radius: 8px; }
-.detail-doc-list { display: flex; flex-direction: column; gap: 6px; }
-.detail-doc-link { display: flex; align-items: center; gap: 8px; color: var(--text-accent); }
+/* Lesson Detail Dialog */
+.lesson-detail-content {
+  min-height: 200px;
+}
+
+.detail-section {
+  margin-bottom: 20px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--border-color-light);
+}
+
+.detail-section:last-child {
+  border-bottom: none;
+  margin-bottom: 0;
+}
+
+.detail-header-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 4px;
+}
+
+.detail-header-row h3 {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text-white);
+}
+
+.detail-code {
+  font-size: 12px;
+  color: var(--text-accent);
+  font-weight: 500;
+  margin-bottom: 8px;
+}
+
+.detail-summary {
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin-bottom: 8px;
+}
+
+.detail-body {
+  font-size: 14px;
+  color: var(--text-primary);
+  line-height: 1.7;
+  white-space: pre-line;
+}
+
+.section-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-white);
+  margin-bottom: 10px;
+}
+
+.resource-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.resource-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border-radius: var(--border-radius-sm);
+  background: var(--bg-input);
+  border: 1px solid var(--border-color);
+  transition: all var(--transition-fast);
+}
+
+.resource-item.clickable {
+  cursor: pointer;
+}
+
+.resource-item.clickable:hover {
+  border-color: var(--text-accent);
+  background: var(--bg-card-hover);
+}
+
+.resource-name {
+  flex: 1;
+  font-size: 13px;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.thumb-preview-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.thumb-preview-item {
+  width: 100px;
+  height: 100px;
+  border-radius: var(--border-radius-sm);
+  overflow: hidden;
+  position: relative;
+  border: 2px solid var(--border-color);
+}
+
+.thumb-preview-item img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.thumb-primary-badge {
+  position: absolute;
+  bottom: 4px;
+  left: 4px;
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 4px;
+  color: white;
+  background: rgba(102, 126, 234, 0.9);
+}
 </style>

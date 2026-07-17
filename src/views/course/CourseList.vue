@@ -4,10 +4,12 @@ import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Search, Plus, Download, Refresh, Delete, Edit, Notebook } from '@element-plus/icons-vue'
 import { getCourses, deleteCourse, restoreCourse, exportCourses, getCourseStudents } from '@/api/course'
-import { formatPrice, levelLabels, levelTagType, statusTagType, downloadExcel } from '@/utils/helpers'
+import { formatPrice, levelTagType, statusTagType, downloadExcel, getLevelLabel } from '@/utils/helpers'
+import { useI18n } from '@/utils/i18n'
 import CourseForm from './CourseForm.vue'
 import CourseStudents from './CourseStudents.vue'
 
+const { t } = useI18n()
 const router = useRouter()
 
 // State
@@ -95,12 +97,12 @@ function handleFormSuccess() {
 async function handleDelete(row) {
   try {
     await ElMessageBox.confirm(
-      `Xác nhận xóa khóa học "${row.name}"?`,
-      'Xóa khóa học',
-      { type: 'warning', confirmButtonText: 'Xóa', cancelButtonText: 'Hủy' }
+      t('courses.confirmDelete', { name: row.name }),
+      t('courses.deleteTitle'),
+      { type: 'warning', confirmButtonText: t('btn.delete'), cancelButtonText: t('btn.cancel') }
     )
     await deleteCourse(row.id)
-    ElMessage.success('Đã xóa khóa học')
+    ElMessage.success(t('courses.deleted'))
     fetchData()
   } catch (e) {
     if (e !== 'cancel') console.error(e)
@@ -110,12 +112,12 @@ async function handleDelete(row) {
 async function handleRestore(row) {
   try {
     await ElMessageBox.confirm(
-      `Khôi phục khóa học "${row.name}"?`,
-      'Khôi phục',
-      { type: 'info', confirmButtonText: 'Khôi phục', cancelButtonText: 'Hủy' }
+      t('courses.confirmRestore', { name: row.name }),
+      t('courses.restoreTitle'),
+      { type: 'info', confirmButtonText: t('btn.restore'), cancelButtonText: t('btn.cancel') }
     )
     await restoreCourse(row.id)
-    ElMessage.success('Đã khôi phục khóa học')
+    ElMessage.success(t('courses.restored'))
     fetchData()
   } catch (e) {
     if (e !== 'cancel') console.error(e)
@@ -144,7 +146,7 @@ async function handleExport() {
       maxPrice: queryParams.maxPrice || undefined
     })
     downloadExcel(res, 'courses_export.xlsx')
-    ElMessage.success('Đã tải xuống file Excel')
+    ElMessage.success(t('courses.exported'))
   } catch (e) {
     console.error(e)
   }
@@ -166,16 +168,16 @@ function handleSortChange({ prop, order }) {
     <div class="page-header">
       <div class="page-header-left">
         <h1 class="page-title">
-          <span class="gradient-text">Quản lý Khóa học</span>
+          <span class="gradient-text">{{ $t('courses.title') }}</span>
         </h1>
-        <p class="page-subtitle">Danh sách tất cả khóa học trong hệ thống</p>
+        <p class="page-subtitle">{{ $t('courses.subtitle') }}</p>
       </div>
       <div class="page-header-right">
         <el-button type="primary" :icon="Plus" @click="handleCreate" id="btn-create-course">
-          Thêm khóa học
+          {{ $t('courses.add') }}
         </el-button>
         <el-button :icon="Download" @click="handleExport" id="btn-export-courses">
-          Xuất Excel
+          {{ $t('btn.export') }}
         </el-button>
       </div>
     </div>
@@ -186,7 +188,7 @@ function handleSortChange({ prop, order }) {
         <el-form-item>
           <el-input
             v-model="queryParams.keyword"
-            placeholder="Tìm theo tên, mã..."
+            :placeholder="$t('msg.searchCourse')"
             :prefix-icon="Search"
             clearable
             @clear="handleSearch"
@@ -197,21 +199,21 @@ function handleSortChange({ prop, order }) {
         <el-form-item>
           <el-select
             v-model="queryParams.level"
-            placeholder="Cấp độ"
+            :placeholder="$t('col.level')"
             clearable
             @change="handleSearch"
             style="width: 150px"
             id="select-level-course"
           >
-            <el-option label="Cơ bản" value="BEGINNER" />
-            <el-option label="Trung cấp" value="INTERMEDIATE" />
-            <el-option label="Nâng cao" value="ADVANCED" />
+            <el-option :label="$t('level.beginner')" value="BEGINNER" />
+            <el-option :label="$t('level.intermediate')" value="INTERMEDIATE" />
+            <el-option :label="$t('level.advanced')" value="ADVANCED" />
           </el-select>
         </el-form-item>
         <el-form-item>
           <el-input-number
             v-model="queryParams.minPrice"
-            placeholder="Giá từ"
+            :placeholder="$t('col.price')"
             :min="0"
             :controls="false"
             style="width: 130px"
@@ -220,7 +222,7 @@ function handleSortChange({ prop, order }) {
         <el-form-item>
           <el-input-number
             v-model="queryParams.maxPrice"
-            placeholder="Giá đến"
+            :placeholder="$t('col.price')"
             :min="0"
             :controls="false"
             style="width: 130px"
@@ -228,10 +230,10 @@ function handleSortChange({ prop, order }) {
         </el-form-item>
         <el-form-item>
           <el-button type="primary" :icon="Search" @click="handleSearch" id="btn-search-course">
-            Tìm kiếm
+            {{ $t('btn.search') }}
           </el-button>
           <el-button :icon="Refresh" @click="handleReset" id="btn-reset-course">
-            Đặt lại
+            {{ $t('btn.reset') }}
           </el-button>
         </el-form-item>
       </el-form>
@@ -248,7 +250,7 @@ function handleSortChange({ prop, order }) {
         id="table-courses"
       >
         <el-table-column prop="id" label="ID" width="70" sortable="custom" />
-        <el-table-column label="Thumbnail" width="90" align="center">
+        <el-table-column :label="$t('col.thumbnail')" width="90" align="center">
           <template #default="{ row }">
             <div class="thumb-cell">
               <img
@@ -263,36 +265,36 @@ function handleSortChange({ prop, order }) {
             </div>
           </template>
         </el-table-column>
-        <el-table-column prop="name" label="Tên khóa học" min-width="200" sortable="custom">
+        <el-table-column prop="name" :label="$t('col.courseName')" min-width="200" sortable="custom">
           <template #default="{ row }">
             <span class="text-highlight">{{ row.name }}</span>
           </template>
         </el-table-column>
-        <el-table-column prop="code" label="Mã" width="110" />
-        <el-table-column prop="price" label="Giá" width="140" sortable="custom">
+        <el-table-column prop="code" :label="$t('col.code')" width="110" />
+        <el-table-column prop="price" :label="$t('col.price')" width="140" sortable="custom">
           <template #default="{ row }">
             <span class="price-text">{{ formatPrice(row.price) }}</span>
           </template>
         </el-table-column>
-        <el-table-column prop="level" label="Cấp độ" width="120" align="center">
+        <el-table-column prop="level" :label="$t('col.level')" width="120" align="center">
           <template #default="{ row }">
             <el-tag :type="levelTagType[row.level]" size="small" round>
-              {{ levelLabels[row.level] || row.level }}
+              {{ getLevelLabel(row.level) }}
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="instructorName" label="Giảng viên" min-width="150" show-overflow-tooltip />
-        <el-table-column prop="status" label="Trạng thái" width="120" align="center">
+        <el-table-column prop="instructorName" :label="$t('col.instructor')" min-width="150" show-overflow-tooltip />
+        <el-table-column prop="status" :label="$t('col.status')" width="120" align="center">
           <template #default="{ row }">
             <el-tag :type="statusTagType[row.status]" size="small" round>
-              {{ row.status === 'ACTIVE' ? 'Hoạt động' : 'Đã xóa' }}
+              {{ row.status === 'ACTIVE' ? $t('status.active') : $t('status.deleted') }}
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="Hành động" width="220" align="center" fixed="right">
+        <el-table-column :label="$t('col.actions')" width="220" align="center">
           <template #default="{ row }">
             <div class="action-buttons">
-              <el-tooltip content="Bài học" placement="top">
+              <el-tooltip :content="$t('nav.lessons')" placement="top">
                 <el-button
                   type="info"
                   :icon="Notebook"
@@ -301,7 +303,7 @@ function handleSortChange({ prop, order }) {
                   @click="handleViewLessons(row)"
                 />
               </el-tooltip>
-              <el-tooltip content="Học viên" placement="top">
+              <el-tooltip :content="$t('nav.students')" placement="top">
                 <el-button
                   size="small"
                   circle
@@ -310,7 +312,7 @@ function handleSortChange({ prop, order }) {
                   <el-icon><User /></el-icon>
                 </el-button>
               </el-tooltip>
-              <el-tooltip content="Sửa" placement="top">
+              <el-tooltip :content="$t('btn.edit')" placement="top">
                 <el-button
                   type="primary"
                   :icon="Edit"
@@ -319,7 +321,7 @@ function handleSortChange({ prop, order }) {
                   @click="handleEdit(row)"
                 />
               </el-tooltip>
-              <el-tooltip v-if="row.status === 'ACTIVE'" content="Xóa" placement="top">
+              <el-tooltip v-if="row.status === 'ACTIVE'" :content="$t('btn.delete')" placement="top">
                 <el-button
                   type="danger"
                   :icon="Delete"
@@ -328,7 +330,7 @@ function handleSortChange({ prop, order }) {
                   @click="handleDelete(row)"
                 />
               </el-tooltip>
-              <el-tooltip v-else content="Khôi phục" placement="top">
+              <el-tooltip v-else :content="$t('btn.restore')" placement="top">
                 <el-button
                   type="success"
                   :icon="Refresh"

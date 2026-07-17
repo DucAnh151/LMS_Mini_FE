@@ -40,15 +40,15 @@ const breadcrumbs = computed(() => {
   const crumbs = [{ title: t('nav.home'), path: '/' }]
   const matched = route.matched
   matched.forEach((record) => {
-    if (record.meta?.title) {
+    if (record.meta?.titleKey) {
       crumbs.push({
-        title: record.meta.title,
+        title: t(record.meta.titleKey),
         path: record.path
       })
     }
   })
   // Handle lesson sub-route
-  if (route.params.courseId && route.meta?.title === 'Bài học') {
+  if (route.params.courseId && route.meta?.titleKey === 'nav.lessons') {
     crumbs.splice(1, 0, { title: t('nav.courses'), path: '/courses' })
   }
   return crumbs

@@ -1,5 +1,6 @@
 import axios from 'axios'
 import { ElMessage } from 'element-plus'
+import { getTranslation } from '@/utils/i18n'
 
 const request = axios.create({
   baseURL: '/api/v1',
@@ -33,20 +34,20 @@ request.interceptors.response.use(
       const message = data?.message || getErrorMessage(response.status)
       ElMessage.error(message)
     } else {
-      ElMessage.error('Lỗi kết nối đến server')
+      ElMessage.error(getTranslation('error.network'))
     }
     return Promise.reject(error)
   }
 )
 
 function getErrorMessage(status) {
-  const messages = {
-    400: 'Dữ liệu không hợp lệ',
-    404: 'Không tìm thấy dữ liệu',
-    409: 'Dữ liệu bị trùng lặp',
-    500: 'Lỗi hệ thống'
+  const key = `error.${status}`
+  const translated = getTranslation(key)
+  // If translation returns the key itself, provide a generic fallback
+  if (translated === key) {
+    return `${getTranslation('msg.error')}: ${status}`
   }
-  return messages[status] || `Lỗi: ${status}`
+  return translated
 }
 
 export default request

@@ -268,6 +268,35 @@ a:hover {
 .el-table__empty-text {
   color: var(--text-muted) !important;
 }
+/* ===========================
+   FIX ELEMENT PLUS FIXED COLUMN
+   =========================== */
+
+.el-table__fixed,
+.el-table__fixed-right,
+.el-table__fixed-left {
+    background: var(--bg-card) !important;
+    box-shadow: none !important;
+}
+
+.el-table__fixed::before,
+.el-table__fixed-right::before,
+.el-table__fixed-left::before {
+    display: none !important;
+}
+
+.el-table__fixed-right-patch {
+    background: transparent !important;
+}
+
+.el-table__inner-wrapper::before {
+    display: none !important;
+}
+
+.el-table__fixed-right .el-table__cell,
+.el-table__fixed-left .el-table__cell {
+    background: var(--bg-card) !important;
+}
 
 /* Pagination */
 .el-pagination {
@@ -490,18 +519,6 @@ html.dark .el-loading-mask {
   border: 1px solid var(--border-color);
 }
 
-/* Table fixed column background fix */
-.el-table__fixed-right {
-  background: var(--bg-card) !important;
-}
-
-html.dark .el-table .el-table-fixed-column--right {
-  background: var(--bg-card) !important;
-}
-
-.el-table .el-table-fixed-column--right {
-  background: var(--bg-card) !important;
-}
 
 .gradient-text {
   background: var(--gradient-primary);

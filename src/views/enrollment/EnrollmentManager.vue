@@ -5,7 +5,10 @@ import { Search, Plus, Delete, Switch, User } from '@element-plus/icons-vue'
 import { getStudents, getUnregisteredCourses } from '@/api/student'
 import { createEnrollment, deleteEnrollment, updateEnrollment } from '@/api/enrollment'
 import { getCourseStudents, getCourses } from '@/api/course'
-import { formatPrice, levelLabels, levelTagType } from '@/utils/helpers'
+import { formatPrice, levelTagType, getLevelLabel } from '@/utils/helpers'
+import { useI18n } from '@/utils/i18n'
+
+const { t } = useI18n()
 
 // ─── Step 1: Select Student ───
 const students = ref([])
@@ -103,17 +106,17 @@ async function findEnrollmentId(courseId) {
 async function handleDeleteEnrollment(course) {
   try {
     await ElMessageBox.confirm(
-      `Hủy đăng ký khóa học "${course.name}" cho ${selectedStudent.value.fullName}?`,
-      'Hủy đăng ký',
-      { type: 'warning', confirmButtonText: 'Hủy đăng ký', cancelButtonText: 'Đóng' }
+      t('enrollments.cancelConfirm', { name: course.name, course: selectedStudent.value.fullName }),
+      t('enrollments.cancelTitle'),
+      { type: 'warning', confirmButtonText: t('enrollments.cancelBtn'), cancelButtonText: t('btn.close') }
     )
     const enrollmentId = await findEnrollmentId(course.id)
     if (!enrollmentId) {
-      ElMessage.error('Không tìm thấy thông tin đăng ký')
+      ElMessage.error(t('enrollments.notFound'))
       return
     }
     await deleteEnrollment(enrollmentId)
-    ElMessage.success('Đã hủy đăng ký thành công')
+    ElMessage.success(t('enrollments.cancelSuccess'))
     refreshAll()
   } catch (e) {
     if (e !== 'cancel') console.error(e)
@@ -161,7 +164,7 @@ function searchUnreg() {
 
 async function handleEnroll() {
   if (selectedCourseIds.value.length === 0) {
-    ElMessage.warning('Vui lòng chọn ít nhất 1 khóa học')
+    ElMessage.warning(t('enrollments.selectCourseFirst'))
     return
   }
   enrolling.value = true
@@ -170,7 +173,7 @@ async function handleEnroll() {
     fd.append('studentId', selectedStudent.value.id)
     selectedCourseIds.value.forEach(id => fd.append('courseIds', id))
     await createEnrollment(fd)
-    ElMessage.success('Đăng ký thành công')
+    ElMessage.success(t('enrollments.enrollSuccess'))
     selectedCourseIds.value = []
     refreshAll()
   } catch (e) {
@@ -201,18 +204,18 @@ async function openTransferDialog(course) {
 
 async function handleTransfer() {
   if (!transferNewCourseId.value) {
-    ElMessage.warning('Vui lòng chọn khóa học mới')
+    ElMessage.warning(t('enrollments.selectCourseWarning'))
     return
   }
   transferLoading.value = true
   try {
     const enrollmentId = await findEnrollmentId(transferCourseFrom.value.id)
     if (!enrollmentId) {
-      ElMessage.error('Không tìm thấy thông tin đăng ký')
+      ElMessage.error(t('enrollments.notFound'))
       return
     }
     await updateEnrollment(enrollmentId, transferNewCourseId.value)
-    ElMessage.success('Chuyển khóa học thành công')
+    ElMessage.success(t('enrollments.transferSuccess'))
     transferDialogVisible.value = false
     refreshAll()
   } catch (e) {
@@ -237,9 +240,9 @@ onMounted(fetchStudents)
     <div class="page-header">
       <div class="page-header-left">
         <h1 class="page-title">
-          <span class="gradient-text">Đăng ký Khóa học</span>
+          <span class="gradient-text">{{ $t('enrollments.title') }}</span>
         </h1>
-        <p class="page-subtitle">Quản lý đăng ký khóa học cho học viên</p>
+        <p class="page-subtitle">{{ $t('enrollments.subtitle') }}</p>
       </div>
     </div>
 
@@ -247,7 +250,7 @@ onMounted(fetchStudents)
       <!-- Left: Student Selection -->
       <div class="card-container student-panel">
         <h3 class="panel-title">
-          <el-icon><User /></el-icon> Chọn học viên
+          <el-icon><User /></el-icon> {{ $t('enrollments.selectStudent') }}
         </h3>
 
         <!-- Selected student card -->
@@ -256,7 +259,7 @@ onMounted(fetchStudents)
             <span class="student-name">{{ selectedStudent.fullName }}</span>
             <span class="student-email">{{ selectedStudent.email }}</span>
           </div>
-          <el-button text type="danger" size="small" @click="clearStudent">Bỏ chọn</el-button>
+          <el-button text type="danger" size="small" @click="clearStudent">{{ $t('btn.deselect') }}</el-button>
         </div>
 
         <!-- Student search & list -->
@@ -264,7 +267,7 @@ onMounted(fetchStudents)
           <div class="search-row">
             <el-input
               v-model="studentSearchKeyword"
-              placeholder="Tìm học viên..."
+              :placeholder="$t('enrollments.searchStudent')"
               :prefix-icon="Search"
               clearable
               @keyup.enter="searchStudents"
@@ -288,7 +291,7 @@ onMounted(fetchStudents)
             </div>
 
             <div v-if="students.length === 0 && !studentLoading" class="empty-text">
-              Không tìm thấy học viên
+              {{ $t('enrollments.noStudentFound') }}
             </div>
           </div>
 
@@ -309,7 +312,7 @@ onMounted(fetchStudents)
       <!-- Right: Course Management with Tabs -->
       <div class="card-container course-panel">
         <div v-if="!selectedStudent" class="empty-prompt">
-          <el-empty description="Vui lòng chọn học viên trước" />
+          <el-empty :description="$t('enrollments.selectStudentFirst')" />
         </div>
 
         <div v-else>
@@ -318,7 +321,7 @@ onMounted(fetchStudents)
             <el-tab-pane name="enrolled">
               <template #label>
                 <span class="tab-label">
-                  📚 Đã đăng ký
+                  📚 {{ $t('enrollments.enrolled') }}
                   <el-badge
                     v-if="enrolledCourses.length > 0"
                     :value="enrolledCourses.length"
@@ -335,35 +338,35 @@ onMounted(fetchStudents)
                 style="width: 100%"
                 id="table-enrolled-courses"
               >
-                <el-table-column label="Ảnh" width="70" align="center">
+                <el-table-column :label="$t('col.thumbnail')" width="70" align="center">
                   <template #default="{ row }">
                     <div class="mini-thumb">
                       <img v-if="row.thumbnailUrl" :src="row.thumbnailUrl" alt="" />
                     </div>
                   </template>
                 </el-table-column>
-                <el-table-column prop="name" label="Tên khóa học" min-width="180">
+                <el-table-column prop="name" :label="$t('col.courseName')" min-width="180">
                   <template #default="{ row }">
                     <span class="text-highlight">{{ row.name }}</span>
                   </template>
                 </el-table-column>
-                <el-table-column prop="code" label="Mã" width="100" />
-                <el-table-column prop="price" label="Giá" width="130">
+                <el-table-column prop="code" :label="$t('col.code')" width="100" />
+                <el-table-column prop="price" :label="$t('col.price')" width="130">
                   <template #default="{ row }">
                     <span class="price-text">{{ formatPrice(row.price) }}</span>
                   </template>
                 </el-table-column>
-                <el-table-column prop="level" label="Cấp độ" width="110" align="center">
+                <el-table-column prop="level" :label="$t('col.level')" width="110" align="center">
                   <template #default="{ row }">
                     <el-tag :type="levelTagType[row.level]" size="small" round>
-                      {{ levelLabels[row.level] || row.level }}
+                      {{ getLevelLabel(row.level) }}
                     </el-tag>
                   </template>
                 </el-table-column>
-                <el-table-column label="Hành động" width="140" align="center" fixed="right">
+                <el-table-column :label="$t('col.actions')" width="140" align="center">
                   <template #default="{ row }">
                     <div class="action-buttons">
-                      <el-tooltip content="Chuyển khóa" placement="top">
+                      <el-tooltip :content="$t('enrollments.transferCourse')" placement="top">
                         <el-button
                           type="warning"
                           :icon="Switch"
@@ -372,7 +375,7 @@ onMounted(fetchStudents)
                           @click="openTransferDialog(row)"
                         />
                       </el-tooltip>
-                      <el-tooltip content="Hủy đăng ký" placement="top">
+                      <el-tooltip :content="$t('enrollments.cancelEnroll')" placement="top">
                         <el-button
                           type="danger"
                           :icon="Delete"
@@ -387,9 +390,9 @@ onMounted(fetchStudents)
               </el-table>
 
               <div v-if="enrolledCourses.length === 0 && !enrolledLoading" class="empty-enrolled">
-                <el-empty description="Chưa đăng ký khóa học nào" :image-size="80">
+                <el-empty :description="$t('enrollments.noEnrolled')" :image-size="80">
                   <el-button type="primary" size="small" @click="activeTab = 'register'">
-                    Đăng ký ngay
+                    {{ $t('btn.registerNow') }}
                   </el-button>
                 </el-empty>
               </div>
@@ -398,7 +401,7 @@ onMounted(fetchStudents)
             <!-- Tab 2: Register New -->
             <el-tab-pane name="register">
               <template #label>
-                <span class="tab-label">➕ Đăng ký mới</span>
+                <span class="tab-label">➕ {{ $t('enrollments.registerNew') }}</span>
               </template>
 
               <div class="panel-header">
@@ -411,7 +414,7 @@ onMounted(fetchStudents)
                   @click="handleEnroll"
                   id="btn-enroll"
                 >
-                  Đăng ký ({{ selectedCourseIds.length }})
+                  {{ $t('enrollments.enrollCount', { count: selectedCourseIds.length }) }}
                 </el-button>
               </div>
 
@@ -419,7 +422,7 @@ onMounted(fetchStudents)
               <div class="search-row" style="margin-bottom: 16px;">
                 <el-input
                   v-model="unregQuery.keyword"
-                  placeholder="Tìm khóa học..."
+                  :placeholder="$t('enrollments.searchCourse')"
                   :prefix-icon="Search"
                   clearable
                   @keyup.enter="searchUnreg"
@@ -429,15 +432,15 @@ onMounted(fetchStudents)
                 />
                 <el-select
                   v-model="unregQuery.level"
-                  placeholder="Cấp độ"
+                  :placeholder="$t('col.level')"
                   clearable
                   @change="searchUnreg"
                   style="width: 140px"
                   id="select-level-unreg"
                 >
-                  <el-option label="Cơ bản" value="BEGINNER" />
-                  <el-option label="Trung cấp" value="INTERMEDIATE" />
-                  <el-option label="Nâng cao" value="ADVANCED" />
+                  <el-option :label="$t('level.beginner')" value="BEGINNER" />
+                  <el-option :label="$t('level.intermediate')" value="INTERMEDIATE" />
+                  <el-option :label="$t('level.advanced')" value="ADVANCED" />
                 </el-select>
               </div>
 
@@ -451,28 +454,28 @@ onMounted(fetchStudents)
                 id="table-unreg-courses"
               >
                 <el-table-column type="selection" width="45" />
-                <el-table-column label="Ảnh" width="70" align="center">
+                <el-table-column :label="$t('col.thumbnail')" width="70" align="center">
                   <template #default="{ row }">
                     <div class="mini-thumb">
                       <img v-if="row.thumbnailUrl" :src="row.thumbnailUrl" alt="" />
                     </div>
                   </template>
                 </el-table-column>
-                <el-table-column prop="name" label="Tên khóa học" min-width="180">
+                <el-table-column prop="name" :label="$t('col.courseName')" min-width="180">
                   <template #default="{ row }">
                     <span class="text-highlight">{{ row.name }}</span>
                   </template>
                 </el-table-column>
-                <el-table-column prop="code" label="Mã" width="100" />
-                <el-table-column prop="price" label="Giá" width="130">
+                <el-table-column prop="code" :label="$t('col.code')" width="100" />
+                <el-table-column prop="price" :label="$t('col.price')" width="130">
                   <template #default="{ row }">
                     <span class="price-text">{{ formatPrice(row.price) }}</span>
                   </template>
                 </el-table-column>
-                <el-table-column prop="level" label="Cấp độ" width="110" align="center">
+                <el-table-column prop="level" :label="$t('col.level')" width="110" align="center">
                   <template #default="{ row }">
                     <el-tag :type="levelTagType[row.level]" size="small" round>
-                      {{ levelLabels[row.level] || row.level }}
+                      {{ getLevelLabel(row.level) }}
                     </el-tag>
                   </template>
                 </el-table-column>
@@ -498,26 +501,26 @@ onMounted(fetchStudents)
     <!-- Transfer Dialog -->
     <el-dialog
       v-model="transferDialogVisible"
-      title="Chuyển khóa học"
+      :title="$t('enrollments.transferTitle')"
       width="500px"
       :close-on-click-modal="false"
       id="dialog-transfer-enrollment"
     >
       <div class="transfer-info" v-if="transferCourseFrom">
         <div class="transfer-detail">
-          <span class="transfer-label">Học viên:</span>
+          <span class="transfer-label">{{ $t('enrollments.student') }}</span>
           <span class="transfer-value">{{ selectedStudent?.fullName }}</span>
         </div>
         <div class="transfer-detail">
-          <span class="transfer-label">Từ khóa học:</span>
+          <span class="transfer-label">{{ $t('enrollments.transferFrom') }}</span>
           <span class="transfer-value">{{ transferCourseFrom.name }} ({{ transferCourseFrom.code }})</span>
         </div>
       </div>
       <el-form label-position="top" style="margin-top: 16px;">
-        <el-form-item label="Chuyển sang khóa học">
+        <el-form-item :label="$t('enrollments.transferTo')">
           <el-select
             v-model="transferNewCourseId"
-            placeholder="Chọn khóa học mới"
+            :placeholder="$t('enrollments.selectNewCourse')"
             style="width: 100%"
             filterable
             id="select-transfer-course"
@@ -532,9 +535,9 @@ onMounted(fetchStudents)
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="transferDialogVisible = false">Hủy</el-button>
+        <el-button @click="transferDialogVisible = false">{{ $t('btn.cancel') }}</el-button>
         <el-button type="primary" @click="handleTransfer" :loading="transferLoading">
-          Chuyển khóa học
+          {{ $t('btn.transfer') }}
         </el-button>
       </template>
     </el-dialog>

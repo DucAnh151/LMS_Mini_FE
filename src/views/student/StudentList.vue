@@ -1,10 +1,15 @@
 <script setup>
-import { ref, reactive, onMounted, watch } from 'vue'
+import { ref, reactive, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Search, Plus, Download, Refresh, Delete, Edit, View, User } from '@element-plus/icons-vue'
-import { getStudents, getStudent , deleteStudent, restoreStudent, exportStudents } from '@/api/student'
-import { formatDate, genderLabels, statusTagType, downloadExcel } from '@/utils/helpers'
+import { getStudents, deleteStudent, restoreStudent, exportStudents } from '@/api/student'
+import { formatDate, statusTagType, downloadExcel, getGenderLabel } from '@/utils/helpers'
+import { useI18n } from '@/utils/i18n'
 import StudentForm from './StudentForm.vue'
+
+const { t } = useI18n()
+const router = useRouter()
 
 // State
 const loading = ref(false)
@@ -12,8 +17,6 @@ const tableData = ref([])
 const total = ref(0)
 const formVisible = ref(false)
 const editingId = ref(null)
-const detailVisible = ref(false)
-const detailData = ref(null)
 
 const queryParams = reactive({
   keyword: '',
@@ -81,25 +84,15 @@ function handleFormSuccess() {
   fetchData()
 }
 
-async function handleView(row) {
-  try {
-    const res = await getStudent(row.id)
-    detailData.value = res.data
-    detailVisible.value = true
-  } catch (e) {
-    console.error(e)
-  }
-}
-
 async function handleDelete(row) {
   try {
     await ElMessageBox.confirm(
       `Xác nhận xóa học viên "${row.fullName}"?`,
-      'Xóa học viên',
-      { type: 'warning', confirmButtonText: 'Xóa', cancelButtonText: 'Hủy' }
+      t('students.confirmDelete'),
+      { type: 'warning', confirmButtonText: t('btn.delete'), cancelButtonText: t('btn.cancel') }
     )
     await deleteStudent(row.id)
-    ElMessage.success('Đã xóa học viên')
+    ElMessage.success(t('students.deleted'))
     fetchData()
   } catch (e) {
     if (e !== 'cancel') console.error(e)
@@ -110,15 +103,20 @@ async function handleRestore(row) {
   try {
     await ElMessageBox.confirm(
       `Khôi phục học viên "${row.fullName}"?`,
-      'Khôi phục',
-      { type: 'info', confirmButtonText: 'Khôi phục', cancelButtonText: 'Hủy' }
+      t('students.confirmRestore'),
+      { type: 'info', confirmButtonText: t('btn.restore'), cancelButtonText: t('btn.cancel') }
     )
     await restoreStudent(row.id)
-    ElMessage.success('Đã khôi phục học viên')
+    ElMessage.success(t('students.restored'))
     fetchData()
   } catch (e) {
     if (e !== 'cancel') console.error(e)
   }
+}
+
+// View detail — navigate to detail page
+function handleViewDetail(row) {
+  router.push(`/students/${row.id}`)
 }
 
 // Export
@@ -129,7 +127,7 @@ async function handleExport() {
       status: queryParams.status || undefined
     })
     downloadExcel(res, 'students_export.xlsx')
-    ElMessage.success('Đã tải xuống file Excel')
+    ElMessage.success(t('msg.exported'))
   } catch (e) {
     console.error(e)
   }
@@ -152,16 +150,16 @@ function handleSortChange({ prop, order }) {
     <div class="page-header">
       <div class="page-header-left">
         <h1 class="page-title">
-          <span class="gradient-text">Quản lý Học viên</span>
+          <span class="gradient-text">{{ $t('students.title') }}</span>
         </h1>
-        <p class="page-subtitle">Danh sách tất cả học viên trong hệ thống</p>
+        <p class="page-subtitle">{{ $t('students.subtitle') }}</p>
       </div>
       <div class="page-header-right">
         <el-button type="primary" :icon="Plus" @click="handleCreate" id="btn-create-student">
-          Thêm học viên
+          {{ $t('students.add') }}
         </el-button>
         <el-button :icon="Download" @click="handleExport" id="btn-export-students">
-          Xuất Excel
+          {{ $t('btn.export') }}
         </el-button>
       </div>
     </div>
@@ -172,7 +170,7 @@ function handleSortChange({ prop, order }) {
         <el-form-item>
           <el-input
             v-model="queryParams.keyword"
-            placeholder="Tìm theo tên, email..."
+            :placeholder="$t('msg.searchPlaceholder')"
             :prefix-icon="Search"
             clearable
             @clear="handleSearch"
@@ -183,22 +181,22 @@ function handleSortChange({ prop, order }) {
         <el-form-item>
           <el-select
             v-model="queryParams.status"
-            placeholder="Trạng thái"
+            :placeholder="$t('col.status')"
             clearable
             @change="handleSearch"
             style="width: 160px"
             id="select-status-student"
           >
-            <el-option label="Hoạt động" value="ACTIVE" />
-            <el-option label="Đã xóa" value="DELETE" />
+            <el-option :label="$t('status.active')" value="ACTIVE" />
+            <el-option :label="$t('status.deleted')" value="DELETE" />
           </el-select>
         </el-form-item>
         <el-form-item>
           <el-button type="primary" :icon="Search" @click="handleSearch" id="btn-search-student">
-            Tìm kiếm
+            {{ $t('btn.search') }}
           </el-button>
           <el-button :icon="Refresh" @click="handleReset" id="btn-reset-student">
-            Đặt lại
+            {{ $t('btn.reset') }}
           </el-button>
         </el-form-item>
       </el-form>
@@ -210,12 +208,14 @@ function handleSortChange({ prop, order }) {
         :data="tableData"
         v-loading="loading"
         stripe
+        border
+        table-layout="fixed"
         @sort-change="handleSortChange"
         style="width: 100%"
         id="table-students"
       >
         <el-table-column prop="id" label="ID" width="70" sortable="custom" />
-        <el-table-column label="Avatar" width="80" align="center">
+        <el-table-column :label="$t('col.avatar')" width="80" align="center">
           <template #default="{ row }">
             <div class="avatar-cell">
               <img
@@ -230,38 +230,44 @@ function handleSortChange({ prop, order }) {
             </div>
           </template>
         </el-table-column>
-        <el-table-column prop="fullName" label="Họ và tên" min-width="180" sortable="custom">
+        <el-table-column prop="fullName" :label="$t('col.fullName')" width="180" sortable="custom">
           <template #default="{ row }">
             <span class="text-highlight">{{ row.fullName }}</span>
           </template>
         </el-table-column>
-        <el-table-column prop="email" label="Email" min-width="200" />
-        <el-table-column prop="phoneNumber" label="SĐT" width="130" />
-        <el-table-column prop="birthDate" label="Ngày sinh" width="120">
+        <el-table-column prop="email" :label="$t('col.email')" width="220" />
+        <el-table-column prop="phoneNumber" :label="$t('col.phone')" width="130" />
+        <el-table-column prop="birthDate" :label="$t('col.birthDate')" width="120">
           <template #default="{ row }">
             {{ formatDate(row.birthDate) }}
           </template>
         </el-table-column>
-        <el-table-column prop="gender" label="Giới tính" width="100">
+        <el-table-column prop="gender" :label="$t('col.gender')" width="100">
           <template #default="{ row }">
-            {{ genderLabels[row.gender] || row.gender }}
+            {{ getGenderLabel(row.gender) }}
           </template>
         </el-table-column>
-        <el-table-column prop="address" label="Địa chỉ" min-width="150" show-overflow-tooltip />
-        <el-table-column prop="status" label="Trạng thái" width="120" align="center">
+        <el-table-column prop="address" :label="$t('col.address')" width="150" show-overflow-tooltip />
+        <el-table-column prop="status" :label="$t('col.status')" width="120" align="center">
           <template #default="{ row }">
             <el-tag :type="statusTagType[row.status]" size="small" round>
-              {{ row.status === 'ACTIVE' ? 'Hoạt động' : 'Đã xóa' }}
+              {{ row.status === 'ACTIVE' ? $t('status.active') : $t('status.deleted') }}
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="Hành động" width="180" align="center" fixed="right">
+        <el-table-column :label="$t('col.actions')" width="180" align="center" class-name="action-col">
           <template #default="{ row }">
             <div class="action-buttons">
-              <el-tooltip content="Xem" placement="top">
-                <el-button type="info" :icon="View" size="small" circle @click="handleView(row)" />
+              <el-tooltip :content="$t('btn.view')" placement="top">
+                <el-button
+                  type="info"
+                  :icon="View"
+                  size="small"
+                  circle
+                  @click="handleViewDetail(row)"
+                />
               </el-tooltip>
-              <el-tooltip content="Sửa" placement="top">
+              <el-tooltip :content="$t('btn.edit')" placement="top">
                 <el-button
                   type="primary"
                   :icon="Edit"
@@ -270,7 +276,7 @@ function handleSortChange({ prop, order }) {
                   @click="handleEdit(row)"
                 />
               </el-tooltip>
-              <el-tooltip v-if="row.status === 'ACTIVE'" content="Xóa" placement="top">
+              <el-tooltip v-if="row.status === 'ACTIVE'" :content="$t('btn.delete')" placement="top">
                 <el-button
                   type="danger"
                   :icon="Delete"
@@ -279,7 +285,7 @@ function handleSortChange({ prop, order }) {
                   @click="handleDelete(row)"
                 />
               </el-tooltip>
-              <el-tooltip v-else content="Khôi phục" placement="top">
+              <el-tooltip v-else :content="$t('btn.restore')" placement="top">
                 <el-button
                   type="success"
                   :icon="Refresh"
@@ -315,43 +321,8 @@ function handleSortChange({ prop, order }) {
       :student-id="editingId"
       @success="handleFormSuccess"
     />
-    <el-dialog
-      v-model="detailVisible"
-      title="Chi tiết học viên"
-      width="480px"
-      id="dialog-student-detail"
-    >
-      <div v-if="detailData" class="detail-container">
-        <div class="detail-avatar-wrap">
-          <img v-if="detailData.avatarUrl" :src="detailData.avatarUrl" class="detail-avatar" alt="Avatar" />
-          <div v-else class="detail-avatar-placeholder">
-            <el-icon :size="40"><User /></el-icon>
-          </div>
-        </div>
-        <el-descriptions :column="1" border>
-          <el-descriptions-item label="Họ và tên">{{ detailData.fullName }}</el-descriptions-item>
-          <el-descriptions-item label="CCCD/CMND">{{ detailData.identityNumber }}</el-descriptions-item>
-          <el-descriptions-item label="Email">{{ detailData.email }}</el-descriptions-item>
-          <el-descriptions-item label="Số điện thoại">{{ detailData.phoneNumber }}</el-descriptions-item>
-          <el-descriptions-item label="Ngày sinh">{{ formatDate(detailData.birthDate) }}</el-descriptions-item>
-          <el-descriptions-item label="Giới tính">
-            {{ genderLabels[detailData.gender] || detailData.gender || '—' }}
-          </el-descriptions-item>
-          <el-descriptions-item label="Địa chỉ">{{ detailData.address }}</el-descriptions-item>
-          <el-descriptions-item label="Trạng thái">
-            <el-tag :type="statusTagType[detailData.status]" size="small" round>
-              {{ detailData.status === 'ACTIVE' ? 'Hoạt động' : 'Đã xóa' }}
-            </el-tag>
-          </el-descriptions-item>
-          <el-descriptions-item label="Ngày tạo">{{ formatDate(detailData.createdDate) }}</el-descriptions-item>
-          <el-descriptions-item label="Ngày cập nhật">{{ formatDate(detailData.updatedDate) }}</el-descriptions-item>
-        </el-descriptions>
-      </div>
-      <template #footer>
-        <el-button @click="detailVisible = false">Đóng</el-button>
-        <el-button type="primary" @click="detailVisible = false; handleEdit(detailData)">Sửa</el-button>
-      </template>
-    </el-dialog>
+
+
   </div>
 </template>
 
@@ -399,7 +370,8 @@ function handleSortChange({ prop, order }) {
 }
 
 .table-card {
-  overflow: hidden;
+  overflow-x: auto;
+  overflow-y: visible;
 }
 
 .text-highlight {
@@ -409,8 +381,10 @@ function handleSortChange({ prop, order }) {
 
 .action-buttons {
   display: flex;
-  gap: 6px;
   justify-content: center;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: nowrap;
 }
 
 .pagination-wrapper {
@@ -446,33 +420,5 @@ function handleSortChange({ prop, order }) {
   font-size: 18px;
 }
 
-.detail-container {
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-}
 
-.detail-avatar-wrap {
-  display: flex;
-  justify-content: center;
-}
-
-.detail-avatar {
-  width: 120px;
-  height: 120px;
-  border-radius: 50%;
-  object-fit: cover;
-  border: 3px solid var(--border-color);
-}
-
-.detail-avatar-placeholder {
-  width: 120px;
-  height: 120px;
-  border-radius: 50%;
-  background: var(--bg-input);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--text-muted);
-}
 </style>
