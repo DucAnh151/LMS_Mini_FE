@@ -33,11 +33,17 @@ const formData = reactive({
   address: ''
 })
 
-// Validation with real-time trigger (change + blur)
+// Chan validate tu dong khi form dang reset / nap du lieu,
+// neu khong Element Plus se bao loi ngay khi vua mo dialog
+const suppressValidate = ref(true)
+
+// ----- Validators -----
 const identityValidator = (rule, value, callback) => {
-  if (!value) {
-    callback(new Error(t('validate.required')))
-  } else if (!/^\d{12}$/.test(value)) {
+  if (suppressValidate.value) return callback()
+  const val = (value || '').trim()
+  if (!val) {
+    callback(new Error(t('validate.identityRequired')))
+  } else if (!/^\d{12}$/.test(val)) {
     callback(new Error(t('validate.identity')))
   } else {
     callback()
@@ -45,40 +51,90 @@ const identityValidator = (rule, value, callback) => {
 }
 
 const phoneValidator = (rule, value, callback) => {
-  if (!value) {
-    callback(new Error(t('validate.required')))
-  } else if (!/^\d{10,11}$/.test(value)) {
+  if (suppressValidate.value) return callback()
+  const val = (value || '').trim()
+  if (!val) {
+    callback(new Error(t('validate.phoneRequired')))
+  } else if (!/^0\d{9,10}$/.test(val)) {
     callback(new Error(t('validate.phone')))
   } else {
     callback()
   }
 }
 
+const emailValidator = (rule, value, callback) => {
+  if (suppressValidate.value) return callback()
+  const val = (value || '').trim()
+  if (!val) {
+    callback(new Error(t('validate.required')))
+  } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(val)) {
+    callback(new Error(t('validate.email')))
+  } else {
+    callback()
+  }
+}
+
+// BE yeu cau @Past cho ngay sinh
+const birthDateValidator = (rule, value, callback) => {
+  if (suppressValidate.value) return callback()
+  if (!value) {
+    callback(new Error(t('validate.required')))
+    return
+  }
+  const picked = new Date(value)
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  if (Number.isNaN(picked.getTime()) || picked >= today) {
+    callback(new Error(t('validate.birthDateFuture')))
+  } else {
+    callback()
+  }
+}
+
+function requiredValidator({ max = 255 } = {}) {
+  return (rule, value, callback) => {
+    if (suppressValidate.value) return callback()
+    const val = typeof value === 'string' ? value.trim() : value
+    if (val === '' || val === null || val === undefined) {
+      callback(new Error(t('validate.required')))
+    } else if (typeof val === 'string' && val.length > max) {
+      callback(new Error(t('validate.maxLength', { max })))
+    } else {
+      callback()
+    }
+  }
+}
+
 const rules = {
-  fullName: [{ required: true, message: () => t('validate.required'), trigger: ['blur', 'change'] }],
-  identityNumber: [{ validator: identityValidator, trigger: ['blur', 'change'] }],
-  birthDate: [{ required: true, message: () => t('validate.required'), trigger: 'change' }],
-  email: [
-    { required: true, message: () => t('validate.required'), trigger: ['blur', 'change'] },
-    { type: 'email', message: () => t('validate.email'), trigger: ['blur', 'change'] }
-  ],
-  phoneNumber: [{ validator: phoneValidator, trigger: ['blur', 'change'] }],
-  address: [{ required: true, message: () => t('validate.required'), trigger: ['blur', 'change'] }]
+  fullName: [{ required: true, validator: requiredValidator({ max: 255 }), trigger: ['blur', 'change'] }],
+  // required: true de hien dau * (BE cung @NotBlank truong nay)
+  identityNumber: [{ required: true, validator: identityValidator, trigger: ['blur', 'change'] }],
+  birthDate: [{ required: true, validator: birthDateValidator, trigger: 'change' }],
+  email: [{ required: true, validator: emailValidator, trigger: ['blur', 'change'] }],
+  phoneNumber: [{ required: true, validator: phoneValidator, trigger: ['blur', 'change'] }],
+  address: [{ required: true, validator: requiredValidator({ max: 255 }), trigger: ['blur', 'change'] }]
 }
 
 // Watch dialog open
 watch(() => props.visible, async (val) => {
-  if (val) {
-    resetForm()
-    if (props.studentId) {
-      isEdit.value = true
-      dialogTitle.value = t('students.edit')
-      await loadStudent(props.studentId)
-    } else {
-      isEdit.value = false
-      dialogTitle.value = t('students.add')
-    }
+  if (!val) {
+    suppressValidate.value = true
+    return
   }
+  suppressValidate.value = true
+  resetForm()
+  if (props.studentId) {
+    isEdit.value = true
+    dialogTitle.value = t('students.edit')
+    await loadStudent(props.studentId)
+  } else {
+    isEdit.value = false
+    dialogTitle.value = t('students.add')
+  }
+  await nextTick()
+  await nextTick()
+  formRef.value?.clearValidate()
+  suppressValidate.value = false
 })
 
 async function loadStudent(id) {
@@ -104,13 +160,35 @@ function resetForm() {
   formData.gender = ''
   avatarFile.value = null
   avatarPreview.value = ''
-  nextTick(() => {
-    formRef.value?.clearValidate()
-  })
+  formRef.value?.clearValidate()
 }
+
+// Khong cho chon ngay sinh tu hom nay tro di (BE: @Past)
+function disabledFutureDate(date) {
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  return date.getTime() >= today.getTime()
+}
+
+const IMAGE_EXT = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp']
+const MAX_IMAGE_MB = 5
 
 function handleAvatarChange(file) {
   const raw = file.raw || file
+  const ext = (raw.name.split('.').pop() || '').toLowerCase()
+  // accept="image/*" chi la goi y cua trinh duyet, van phai kiem tra lai
+  const type = raw.type || ''
+  if (!IMAGE_EXT.includes(ext) || (type && !type.startsWith('image/'))) {
+    ElMessage.error(t('lessonForm.invalidImage', { name: raw.name }))
+    return
+  }
+  if (raw.size > MAX_IMAGE_MB * 1024 * 1024) {
+    ElMessage.error(t('lessonForm.fileTooLarge', { name: raw.name, max: MAX_IMAGE_MB }))
+    return
+  }
+  if (avatarPreview.value && avatarPreview.value.startsWith('blob:')) {
+    URL.revokeObjectURL(avatarPreview.value)
+  }
   avatarFile.value = raw
   avatarPreview.value = URL.createObjectURL(raw)
 }
@@ -121,9 +199,11 @@ function handleAvatarRemove() {
 }
 
 async function handleSubmit() {
+  suppressValidate.value = false
   try {
     await formRef.value.validate()
   } catch {
+    ElMessage.warning(t('validate.checkForm'))
     return
   }
 
@@ -161,6 +241,7 @@ function handleClose() {
     :title="dialogTitle"
     width="600px"
     :close-on-click-modal="false"
+    destroy-on-close
     @close="handleClose"
     id="dialog-student-form"
   >
@@ -222,6 +303,7 @@ function handleClose() {
             :placeholder="$t('form.birthDate')"
             format="DD/MM/YYYY"
             value-format="YYYY-MM-DD"
+            :disabled-date="disabledFutureDate"
             style="width: 100%"
             id="input-birthdate"
           />

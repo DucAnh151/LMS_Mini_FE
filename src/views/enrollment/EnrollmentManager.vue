@@ -78,7 +78,10 @@ async function fetchEnrolledCourses() {
       getCourses({ page: 0, size: 100 }),
       getUnregisteredCourses(selectedStudent.value.id, { page: 0, size: 100 })
     ])
-    const allList = allRes.data?.data || []
+    // Chi xet khoa hoc dang ACTIVE: API khoa hoc tra ve ca khoa da xoa mem,
+    // trong khi API "chua dang ky" chi tra ve khoa ACTIVE
+    // => neu khong loc thi khoa da xoa se bi hieu nham la "da dang ky"
+    const allList = (allRes.data?.data || []).filter(c => c.status === 'ACTIVE')
     const unregList = unregRes.data?.data || []
     const unregIds = new Set(unregList.map(c => c.id))
     enrolledCourses.value = allList.filter(c => !unregIds.has(c.id))
@@ -193,10 +196,15 @@ const transferLoading = ref(false)
 async function openTransferDialog(course) {
   transferCourseFrom.value = course
   transferNewCourseId.value = null
+  transferCourses.value = []
   transferDialogVisible.value = true
   try {
     const res = await getUnregisteredCourses(selectedStudent.value.id, { page: 0, size: 100 })
-    transferCourses.value = res.data?.data || []
+    // Chi lay cac khoa hoc hoc vien CHUA dang ky va khac khoa hoc hien tai
+    transferCourses.value = (res.data?.data || []).filter(c => c.id !== course.id)
+    if (transferCourses.value.length === 0) {
+      ElMessage.info(t('enrollments.noTransferTarget'))
+    }
   } catch (e) {
     console.error(e)
   }
@@ -207,6 +215,29 @@ async function handleTransfer() {
     ElMessage.warning(t('enrollments.selectCourseWarning'))
     return
   }
+  if (transferNewCourseId.value === transferCourseFrom.value?.id) {
+    ElMessage.warning(t('enrollments.transferSameCourse'))
+    return
+  }
+
+  const target = transferCourses.value.find(c => c.id === transferNewCourseId.value)
+  const targetName = target ? `${target.name} (${target.code})` : ''
+  const fromName = `${transferCourseFrom.value.name} (${transferCourseFrom.value.code})`
+
+  try {
+    await ElMessageBox.confirm(
+      t('enrollments.transferConfirm', {
+        name: selectedStudent.value.fullName,
+        from: fromName,
+        to: targetName
+      }),
+      t('enrollments.transferConfirmTitle'),
+      { type: 'info', confirmButtonText: t('btn.transfer'), cancelButtonText: t('btn.cancel') }
+    )
+  } catch {
+    return
+  }
+
   transferLoading.value = true
   try {
     const enrollmentId = await findEnrollmentId(transferCourseFrom.value.id)
@@ -215,7 +246,10 @@ async function handleTransfer() {
       return
     }
     await updateEnrollment(enrollmentId, transferNewCourseId.value)
-    ElMessage.success(t('enrollments.transferSuccess'))
+    ElMessage.success(t('enrollments.transferDone', {
+      name: selectedStudent.value.fullName,
+      to: targetName
+    }))
     transferDialogVisible.value = false
     refreshAll()
   } catch (e) {
@@ -300,7 +334,7 @@ onMounted(fetchStudents)
               :current-page="studentQuery.page + 1"
               :page-size="studentQuery.size"
               :total="studentTotal"
-              layout="prev, pager, next"
+              layout="total, prev, pager, next"
               @current-change="handleStudentPageChange"
               background
               small
@@ -338,6 +372,11 @@ onMounted(fetchStudents)
                 style="width: 100%"
                 id="table-enrolled-courses"
               >
+                <el-table-column :label="$t('col.index')" width="55" align="center">
+                  <template #default="{ $index }">
+                    <span class="row-index">{{ $index + 1 }}</span>
+                  </template>
+                </el-table-column>
                 <el-table-column :label="$t('col.thumbnail')" width="70" align="center">
                   <template #default="{ row }">
                     <div class="mini-thumb">
@@ -454,6 +493,11 @@ onMounted(fetchStudents)
                 id="table-unreg-courses"
               >
                 <el-table-column type="selection" width="45" />
+                <el-table-column :label="$t('col.index')" width="55" align="center">
+                  <template #default="{ $index }">
+                    <span class="row-index">{{ unregQuery.page * unregQuery.size + $index + 1 }}</span>
+                  </template>
+                </el-table-column>
                 <el-table-column :label="$t('col.thumbnail')" width="70" align="center">
                   <template #default="{ row }">
                     <div class="mini-thumb">
@@ -486,7 +530,7 @@ onMounted(fetchStudents)
                   :current-page="unregQuery.page + 1"
                   :page-size="unregQuery.size"
                   :total="unregTotal"
-                  layout="prev, pager, next"
+                  layout="total, prev, pager, next"
                   @current-change="handleUnregPageChange"
                   background
                   small
@@ -516,6 +560,13 @@ onMounted(fetchStudents)
           <span class="transfer-value">{{ transferCourseFrom.name }} ({{ transferCourseFrom.code }})</span>
         </div>
       </div>
+      <el-alert
+        :title="$t('enrollments.transferNote')"
+        type="info"
+        :closable="false"
+        show-icon
+        style="margin-top: 12px"
+      />
       <el-form label-position="top" style="margin-top: 16px;">
         <el-form-item :label="$t('enrollments.transferTo')">
           <el-select
@@ -546,6 +597,11 @@ onMounted(fetchStudents)
 
 <style scoped>
 .page-container { max-width: 1400px; }
+
+.row-index {
+  color: var(--text-secondary);
+  font-weight: 600;
+}
 
 .page-header {
   display: flex;

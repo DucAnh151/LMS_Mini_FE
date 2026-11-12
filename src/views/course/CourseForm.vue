@@ -21,6 +21,7 @@ const isEdit = ref(false)
 const dialogTitle = ref('')
 
 // Thumbnails
+const thumbnailError = ref('')
 const newThumbnails = ref([])
 const existingThumbnails = ref([])
 const deletedThumbnailIds = ref([])
@@ -41,8 +42,14 @@ const formData = reactive({
   instructorName: ''
 })
 
-// Duration validation
+// Co chan validate khi form dang duoc reset / nap du lieu
+// (Element Plus tu goi validate('change') moi khi model thay doi,
+//  nen neu khong chan thi vua mo dialog da bao "Truong nay la bat buoc")
+const suppressValidate = ref(true)
+
+// ----- Validators -----
 const durationValidator = (rule, value, callback) => {
+  if (suppressValidate.value) return callback()
   if (durationHours.value <= 0 && durationMinutes.value <= 0) {
     callback(new Error(t('validate.durationRequired')))
   } else {
@@ -50,14 +57,46 @@ const durationValidator = (rule, value, callback) => {
   }
 }
 
+// Validator dung chung: bo qua khi dang reset, bat buoc nhap, gioi han do dai
+function requiredValidator({ max = 255, trim = true } = {}) {
+  return (rule, value, callback) => {
+    if (suppressValidate.value) return callback()
+    const val = typeof value === 'string' && trim ? value.trim() : value
+    if (val === '' || val === null || val === undefined) {
+      callback(new Error(t('validate.required')))
+    } else if (typeof val === 'string' && val.length > max) {
+      callback(new Error(t('validate.maxLength', { max })))
+    } else {
+      callback()
+    }
+  }
+}
+
+const priceValidator = (rule, value, callback) => {
+  if (suppressValidate.value) return callback()
+  if (value === '' || value === null || value === undefined) {
+    callback(new Error(t('validate.required')))
+  } else if (Number.isNaN(Number(value)) || Number(value) < 0) {
+    callback(new Error(t('validate.priceMin')))
+  } else {
+    callback()
+  }
+}
+
+const selectValidator = (rule, value, callback) => {
+  if (suppressValidate.value) return callback()
+  if (!value) callback(new Error(t('validate.required')))
+  else callback()
+}
+
 const rules = {
-  name: [{ required: true, message: () => t('validate.required'), trigger: ['blur', 'change'] }],
-  code: [{ required: true, message: () => t('validate.required'), trigger: ['blur', 'change'] }],
-  price: [{ required: true, message: () => t('validate.required'), trigger: ['blur', 'change'] }],
-  level: [{ required: true, message: () => t('validate.required'), trigger: 'change' }],
-  duration: [{ validator: durationValidator, trigger: ['blur', 'change'] }],
-  language: [{ required: true, message: () => t('validate.required'), trigger: 'change' }],
-  instructorName: [{ required: true, message: () => t('validate.required'), trigger: ['blur', 'change'] }]
+  name: [{ required: true, validator: requiredValidator({ max: 255 }), trigger: ['blur', 'change'] }],
+  code: [{ required: true, validator: requiredValidator({ max: 50 }), trigger: ['blur', 'change'] }],
+  price: [{ required: true, validator: priceValidator, trigger: ['blur', 'change'] }],
+  level: [{ required: true, validator: selectValidator, trigger: 'change' }],
+  duration: [{ required: true, validator: durationValidator, trigger: ['blur', 'change'] }],
+  language: [{ required: true, validator: selectValidator, trigger: 'change' }],
+  instructorName: [{ required: true, validator: requiredValidator({ max: 255 }), trigger: ['blur', 'change'] }]
 }
 
 // Sync duration hours/minutes → formData.duration string
@@ -66,8 +105,10 @@ function syncDuration() {
   if (durationHours.value > 0) parts.push(`${durationHours.value} hours`)
   if (durationMinutes.value > 0) parts.push(`${durationMinutes.value} minutes`)
   formData.duration = parts.join(' ') || ''
-  // Trigger re-validation
-  formRef.value?.validateField('duration').catch(() => {})
+  // Trigger re-validation (bo qua khi dang reset/nap du lieu)
+  if (!suppressValidate.value) {
+    formRef.value?.validateField('duration').catch(() => {})
+  }
 }
 
 // Parse "30 hours" or "1 hours 30 minutes" → split
@@ -82,17 +123,26 @@ function parseDuration(str) {
 }
 
 watch(() => props.visible, async (val) => {
-  if (val) {
-    resetForm()
-    if (props.courseId) {
-      isEdit.value = true
-      dialogTitle.value = t('courses.edit')
-      await loadCourse(props.courseId)
-    } else {
-      isEdit.value = false
-      dialogTitle.value = t('courses.add')
-    }
+  if (!val) {
+    suppressValidate.value = true
+    return
   }
+  suppressValidate.value = true
+  resetForm()
+  if (props.courseId) {
+    isEdit.value = true
+    dialogTitle.value = t('courses.edit')
+    await loadCourse(props.courseId)
+  } else {
+    isEdit.value = false
+    dialogTitle.value = t('courses.add')
+  }
+  // Cho Element Plus chay xong cac validate tu sinh do gan du lieu,
+  // xoa sach trang thai loi roi moi mo lai validate cho thao tac cua nguoi dung
+  await nextTick()
+  await nextTick()
+  formRef.value?.clearValidate()
+  suppressValidate.value = false
 })
 
 async function loadCourse(id) {
@@ -123,22 +173,38 @@ function resetForm() {
   formData.price = null
   durationHours.value = 0
   durationMinutes.value = 0
+  newThumbnails.value.forEach((item) => URL.revokeObjectURL(item.preview))
   newThumbnails.value = []
   existingThumbnails.value = []
   deletedThumbnailIds.value = []
   chosenPrimaryThumbnailId.value = null
-  nextTick(() => {
-    formRef.value?.clearValidate()
-  })
+  thumbnailError.value = ''
+  formRef.value?.clearValidate()
 }
+
+// Loi hien thi ngay duoi o upload thumbnail
+const IMAGE_EXT = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp']
+const MAX_IMAGE_MB = 5
 
 function handleThumbnailChange(file) {
   const raw = file.raw || file
+  const ext = (raw.name.split('.').pop() || '').toLowerCase()
+  // Chan file khong phai anh (accept="image/*" chi la goi y, nguoi dung van chon duoc file khac)
+  const type = raw.type || ''
+  if (!IMAGE_EXT.includes(ext) || (type && !type.startsWith('image/'))) {
+    ElMessage.error(t('lessonForm.invalidImage', { name: raw.name }))
+    return
+  }
+  if (raw.size > MAX_IMAGE_MB * 1024 * 1024) {
+    ElMessage.error(t('lessonForm.fileTooLarge', { name: raw.name, max: MAX_IMAGE_MB }))
+    return
+  }
   newThumbnails.value.push({
     file: raw,
     preview: URL.createObjectURL(raw),
     name: raw.name
   })
+  thumbnailError.value = ''
 }
 
 function removeNewThumbnail(index) {
@@ -159,18 +225,27 @@ function setPrimaryThumbnail(thumbId) {
 }
 
 async function handleSubmit() {
-  // Sync duration before validate
+  // Mo validate (nguoi dung da chu dong bam Luu) va dong bo thoi luong truoc khi kiem tra
+  suppressValidate.value = false
   syncDuration()
 
+  let valid = true
   try {
     await formRef.value.validate()
   } catch {
-    return
+    valid = false
   }
 
-  // Validate thumbnails for create
+  // Validate thumbnails khi tao moi (BE bat buoc phai co it nhat 1 anh)
   if (!isEdit.value && newThumbnails.value.length === 0) {
-    ElMessage.warning(t('validate.thumbnailRequired'))
+    thumbnailError.value = t('validate.thumbnailRequired')
+    valid = false
+  } else {
+    thumbnailError.value = ''
+  }
+
+  if (!valid) {
+    ElMessage.warning(t('validate.checkForm'))
     return
   }
 
@@ -224,6 +299,7 @@ function handleClose() {
     :title="dialogTitle"
     width="700px"
     :close-on-click-modal="false"
+    destroy-on-close
     @close="handleClose"
     id="dialog-course-form"
   >
@@ -310,7 +386,7 @@ function handleClose() {
       </el-form-item>
 
       <!-- Thumbnails -->
-      <el-form-item :label="$t('form.thumbnails')">
+      <el-form-item :label="$t('form.thumbnails')" :required="!isEdit" :error="thumbnailError">
         <!-- Existing thumbnails (edit mode) -->
         <div v-if="existingThumbnails.length > 0" class="thumb-grid">
           <div

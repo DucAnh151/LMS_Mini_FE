@@ -2,7 +2,7 @@
 import { ref, reactive, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Search, Plus, Download, Refresh, Delete, Edit, Notebook } from '@element-plus/icons-vue'
+import { Search, Plus, Download, Refresh, Delete, Edit, Notebook, User } from '@element-plus/icons-vue'
 import { getCourses, deleteCourse, restoreCourse, exportCourses, getCourseStudents } from '@/api/course'
 import { formatPrice, levelTagType, statusTagType, downloadExcel, getLevelLabel } from '@/utils/helpers'
 import { useI18n } from '@/utils/i18n'
@@ -37,6 +37,7 @@ async function fetchData() {
   loading.value = true
   try {
     const params = { ...queryParams }
+    if (!params.keyword) delete params.keyword
     if (!params.level) delete params.level
     if (!params.minPrice) delete params.minPrice
     if (!params.maxPrice) delete params.maxPrice
@@ -44,6 +45,16 @@ async function fetchData() {
     const page = res.data
     tableData.value = page.data || []
     total.value = page.totalElements || 0
+
+    // Trang hiện tại rỗng nhưng vẫn còn dữ liệu -> lùi về trang cuối cùng còn dữ liệu
+    if (tableData.value.length === 0 && total.value > 0 && queryParams.page > 0) {
+      const lastPage = Math.max(0, Math.ceil(total.value / queryParams.size) - 1)
+      if (lastPage !== queryParams.page) {
+        queryParams.page = lastPage
+        loading.value = false
+        return fetchData()
+      }
+    }
   } catch (e) {
     console.error(e)
   } finally {
@@ -152,6 +163,14 @@ async function handleExport() {
   }
 }
 
+// Anh loi (file khong ton tai tren server) -> hien icon mac dinh
+const brokenImages = ref(new Set())
+function handleImageError(url) {
+  const next = new Set(brokenImages.value)
+  next.add(url)
+  brokenImages.value = next
+}
+
 function handleSortChange({ prop, order }) {
   if (prop && order) {
     queryParams.sort = `${prop},${order === 'ascending' ? 'asc' : 'desc'}`
@@ -249,15 +268,21 @@ function handleSortChange({ prop, order }) {
         style="width: 100%"
         id="table-courses"
       >
+        <el-table-column :label="$t('col.index')" width="60" align="center">
+          <template #default="{ $index }">
+            <span class="row-index">{{ queryParams.page * queryParams.size + $index + 1 }}</span>
+          </template>
+        </el-table-column>
         <el-table-column prop="id" label="ID" width="70" sortable="custom" />
         <el-table-column :label="$t('col.thumbnail')" width="90" align="center">
           <template #default="{ row }">
             <div class="thumb-cell">
               <img
-                v-if="row.thumbnailUrl"
+                v-if="row.thumbnailUrl && !brokenImages.has(row.thumbnailUrl)"
                 :src="row.thumbnailUrl"
                 alt="Thumbnail"
                 class="thumb-img"
+                @error="handleImageError(row.thumbnailUrl)"
               />
               <div v-else class="thumb-placeholder">
                 <el-icon><Notebook /></el-icon>
@@ -346,10 +371,11 @@ function handleSortChange({ prop, order }) {
 
       <div class="pagination-wrapper">
         <el-pagination
-          v-model:current-page="queryParams.page"
-          v-model:page-size="queryParams.size"
+          :current-page="queryParams.page + 1"
+          :page-size="queryParams.size"
           :total="total"
           :page-sizes="[10, 20, 50, 100]"
+          :pager-count="7"
           layout="total, sizes, prev, pager, next, jumper"
           @current-change="handlePageChange"
           @size-change="handleSizeChange"
@@ -441,6 +467,11 @@ function handleSortChange({ prop, order }) {
   justify-content: center;
   color: var(--text-muted);
   font-size: 20px;
+}
+
+.row-index {
+  color: var(--text-secondary);
+  font-weight: 600;
 }
 
 .text-highlight {

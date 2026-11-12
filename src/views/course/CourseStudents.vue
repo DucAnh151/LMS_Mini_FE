@@ -98,7 +98,10 @@ async function openTransferDialog(row) {
   // Load available courses the student can transfer to
   try {
     const res = await getUnregisteredCourses(row.studentId, { page: 0, size: 100 })
-    transferCourses.value = res.data?.data || []
+    transferCourses.value = (res.data?.data || []).filter(c => c.id !== props.courseId)
+    if (transferCourses.value.length === 0) {
+      ElMessage.info(t('enrollments.noTransferTarget'))
+    }
   } catch (e) {
     console.error(e)
     // Fallback: load all courses
@@ -117,10 +120,40 @@ async function handleTransfer() {
     ElMessage.warning(t('enrollments.selectCourseWarning'))
     return
   }
+  if (transferNewCourseId.value === props.courseId) {
+    ElMessage.warning(t('enrollments.transferSameCourse'))
+    return
+  }
+
+  const target = transferCourses.value.find(c => c.id === transferNewCourseId.value)
+  const targetName = target ? `${target.name} (${target.code})` : ''
+
+  // Xac nhan ro rang: day la CHUYEN khoa hoc, khong phai xoa dang ky
+  try {
+    await ElMessageBox.confirm(
+      t('enrollments.transferConfirm', {
+        name: transferRow.value.studentName,
+        from: props.courseName,
+        to: targetName
+      }),
+      t('enrollments.transferConfirmTitle'),
+      {
+        type: 'info',
+        confirmButtonText: t('btn.transfer'),
+        cancelButtonText: t('btn.cancel')
+      }
+    )
+  } catch {
+    return
+  }
+
   transferLoading.value = true
   try {
     await updateEnrollment(transferRow.value.enrollmentId, transferNewCourseId.value)
-    ElMessage.success(t('enrollments.transferSuccess'))
+    ElMessage.success(t('enrollments.transferDone', {
+      name: transferRow.value.studentName,
+      to: targetName
+    }))
     transferDialogVisible.value = false
     fetchData()
     emit('change')
@@ -157,6 +190,11 @@ async function handleTransfer() {
 
     <!-- Table -->
     <el-table :data="tableData" v-loading="loading" stripe style="width: 100%" id="table-course-students">
+      <el-table-column :label="$t('col.index')" width="55" align="center">
+        <template #default="{ $index }">
+          <span class="row-index">{{ queryParams.page * queryParams.size + $index + 1 }}</span>
+        </template>
+      </el-table-column>
       <el-table-column prop="studentName" :label="$t('col.studentName')" min-width="150">
         <template #default="{ row }">
           <span class="text-highlight">{{ row.studentName }}</span>
@@ -213,7 +251,7 @@ async function handleTransfer() {
         :current-page="queryParams.page + 1"
         :page-size="queryParams.size"
         :total="total"
-        layout="prev, pager, next"
+        layout="total, prev, pager, next"
         @current-change="handlePageChange"
         background
         small
@@ -239,6 +277,13 @@ async function handleTransfer() {
           <span class="transfer-value">{{ courseName }}</span>
         </div>
       </div>
+      <el-alert
+        :title="$t('enrollments.transferNote')"
+        type="info"
+        :closable="false"
+        show-icon
+        style="margin-top: 12px"
+      />
       <el-form label-position="top" style="margin-top: 16px;">
         <el-form-item :label="$t('enrollments.transferTo')">
           <el-select
@@ -268,6 +313,11 @@ async function handleTransfer() {
 </template>
 
 <style scoped>
+.row-index {
+  color: var(--text-secondary);
+  font-weight: 600;
+}
+
 .text-highlight {
   font-weight: 600;
   color: var(--text-white);

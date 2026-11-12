@@ -30,10 +30,24 @@ const queryParams = reactive({
 async function fetchData() {
   loading.value = true
   try {
-    const res = await getStudents(queryParams)
+    const params = { ...queryParams }
+    if (!params.keyword) delete params.keyword
+    if (!params.status) delete params.status
+    const res = await getStudents(params)
     const page = res.data
     tableData.value = page.data || []
     total.value = page.totalElements || 0
+
+    // Nếu trang hiện tại rỗng mà vẫn còn dữ liệu (vd: xóa hết bản ghi của trang cuối)
+    // thì lùi về trang trước và tải lại
+    if (tableData.value.length === 0 && total.value > 0 && queryParams.page > 0) {
+      const lastPage = Math.max(0, Math.ceil(total.value / queryParams.size) - 1)
+      if (lastPage !== queryParams.page) {
+        queryParams.page = lastPage
+        loading.value = false
+        return fetchData()
+      }
+    }
   } catch (e) {
     console.error(e)
   } finally {
@@ -133,6 +147,14 @@ async function handleExport() {
   }
 }
 
+// Anh loi (file khong ton tai tren server) -> hien icon mac dinh thay vi icon anh vo
+const brokenImages = ref(new Set())
+function handleImageError(url) {
+  const next = new Set(brokenImages.value)
+  next.add(url)
+  brokenImages.value = next
+}
+
 // Sort
 function handleSortChange({ prop, order }) {
   if (prop && order) {
@@ -214,15 +236,21 @@ function handleSortChange({ prop, order }) {
         style="width: 100%"
         id="table-students"
       >
+        <el-table-column :label="$t('col.index')" width="60" align="center" fixed>
+          <template #default="{ $index }">
+            <span class="row-index">{{ queryParams.page * queryParams.size + $index + 1 }}</span>
+          </template>
+        </el-table-column>
         <el-table-column prop="id" label="ID" width="70" sortable="custom" />
         <el-table-column :label="$t('col.avatar')" width="80" align="center">
           <template #default="{ row }">
             <div class="avatar-cell">
               <img
-                v-if="row.avatarUrl"
+                v-if="row.avatarUrl && !brokenImages.has(row.avatarUrl)"
                 :src="row.avatarUrl"
                 alt="Avatar"
                 class="avatar-img"
+                @error="handleImageError(row.avatarUrl)"
               />
               <div v-else class="avatar-placeholder">
                 <el-icon><User /></el-icon>
@@ -302,10 +330,11 @@ function handleSortChange({ prop, order }) {
       <!-- Pagination -->
       <div class="pagination-wrapper">
         <el-pagination
-          v-model:current-page="queryParams.page"
-          v-model:page-size="queryParams.size"
+          :current-page="queryParams.page + 1"
+          :page-size="queryParams.size"
           :total="total"
           :page-sizes="[10, 20, 50, 100]"
+          :pager-count="7"
           layout="total, sizes, prev, pager, next, jumper"
           @current-change="handlePageChange"
           @size-change="handleSizeChange"
@@ -372,6 +401,11 @@ function handleSortChange({ prop, order }) {
 .table-card {
   overflow-x: auto;
   overflow-y: visible;
+}
+
+.row-index {
+  color: var(--text-secondary);
+  font-weight: 600;
 }
 
 .text-highlight {

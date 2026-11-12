@@ -21,6 +21,7 @@ const isEdit = ref(false)
 const dialogTitle = ref('')
 
 // Files
+const resourceError = ref('')
 const newVideos = ref([])
 const newThumbnails = ref([])
 const newDocuments = ref([])
@@ -39,28 +40,52 @@ const formData = reactive({
   lessonType: 'VIDEO'
 })
 
+// Chan validate tu dong khi form dang reset / nap du lieu
+const suppressValidate = ref(true)
+
+function requiredValidator(msgKey, max) {
+  return (rule, value, callback) => {
+    if (suppressValidate.value) return callback()
+    const val = typeof value === 'string' ? value.trim() : value
+    if (val === '' || val === null || val === undefined) {
+      callback(new Error(t(msgKey)))
+    } else if (max && typeof val === 'string' && val.length > max) {
+      callback(new Error(t('validate.maxLength', { max })))
+    } else {
+      callback()
+    }
+  }
+}
+
 const rules = {
-  title: [{ required: true, message: () => t('lessonValidate.title'), trigger: 'blur' }],
-  lessonCode: [{ required: true, message: () => t('lessonValidate.code'), trigger: 'blur' }],
-  summary: [{ required: true, message: () => t('lessonValidate.summary'), trigger: 'blur' }],
-  content: [{ required: true, message: () => t('lessonValidate.content'), trigger: 'blur' }],
-  orderIndex: [{ required: true, message: () => t('lessonValidate.order'), trigger: 'blur' }],
-  durationInSeconds: [{ required: true, message: () => t('lessonValidate.duration'), trigger: 'blur' }],
-  lessonType: [{ required: true, message: () => t('lessonValidate.type'), trigger: 'change' }]
+  title: [{ required: true, validator: requiredValidator('lessonValidate.title', 255), trigger: ['blur', 'change'] }],
+  lessonCode: [{ required: true, validator: requiredValidator('lessonValidate.code', 50), trigger: ['blur', 'change'] }],
+  summary: [{ required: true, validator: requiredValidator('lessonValidate.summary', 500), trigger: ['blur', 'change'] }],
+  content: [{ required: true, validator: requiredValidator('lessonValidate.content'), trigger: ['blur', 'change'] }],
+  orderIndex: [{ required: true, validator: requiredValidator('lessonValidate.order'), trigger: ['blur', 'change'] }],
+  durationInSeconds: [{ required: true, validator: requiredValidator('lessonValidate.duration'), trigger: ['blur', 'change'] }],
+  lessonType: [{ required: true, validator: requiredValidator('lessonValidate.type'), trigger: 'change' }]
 }
 
 watch(() => props.visible, async (val) => {
-  if (val) {
-    resetForm()
-    if (props.lessonId) {
-      isEdit.value = true
-      dialogTitle.value = t('lessons.edit')
-      await loadLesson(props.lessonId)
-    } else {
-      isEdit.value = false
-      dialogTitle.value = t('lessons.addNew')
-    }
+  if (!val) {
+    suppressValidate.value = true
+    return
   }
+  suppressValidate.value = true
+  resetForm()
+  if (props.lessonId) {
+    isEdit.value = true
+    dialogTitle.value = t('lessons.edit')
+    await loadLesson(props.lessonId)
+  } else {
+    isEdit.value = false
+    dialogTitle.value = t('lessons.addNew')
+  }
+  await nextTick()
+  await nextTick()
+  formRef.value?.clearValidate()
+  suppressValidate.value = false
 })
 
 async function loadLesson(id) {
@@ -95,12 +120,59 @@ function resetForm() {
   deletedResourceIds.value = []
   chosenPrimaryVideoId.value = null
   chosenPrimaryThumbnailId.value = null
-  nextTick(() => formRef.value?.clearValidate())
+  resourceError.value = ''
+  formRef.value?.clearValidate()
 }
 
-function addFile(list, file) {
+// ----- Kiem tra dinh dang file truoc khi them vao danh sach -----
+// Thuoc tinh accept cua <input type="file"> chi loc trong hop thoai chon file,
+// nguoi dung van co the chon "All files" va dua vao file sai loai (vd: .xlsx cho video)
+// => bat buoc phai kiem tra lai bang JS.
+const FILE_RULES = {
+  image: {
+    ext: ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp'],
+    mime: 'image/',
+    maxMB: 5,
+    msg: 'lessonForm.invalidImage'
+  },
+  video: {
+    ext: ['mp4', 'webm', 'ogg', 'ogv', 'mov', 'avi', 'mkv', 'm4v'],
+    mime: 'video/',
+    maxMB: 500,
+    msg: 'lessonForm.invalidVideo'
+  },
+  document: {
+    ext: ['pdf', 'doc', 'docx', 'ppt', 'pptx', 'txt'],
+    mime: null,
+    maxMB: 50,
+    msg: 'lessonForm.invalidDocument'
+  }
+}
+
+function isValidFile(raw, kind) {
+  const rule = FILE_RULES[kind]
+  const ext = (raw.name.split('.').pop() || '').toLowerCase()
+  const type = raw.type || ''
+  // Duoi file phai dung; neu trinh duyet doc duoc MIME thi MIME cung phai dung
+  // => file .xlsx (hoac .xlsx doi ten thanh .mp4) deu bi chan
+  if (!rule.ext.includes(ext)) return false
+  if (rule.mime && type && !type.startsWith(rule.mime)) return false
+  return true
+}
+
+function addFile(list, file, kind) {
   const raw = file.raw || file
+  const rule = FILE_RULES[kind]
+  if (!isValidFile(raw, kind)) {
+    ElMessage.error(t(rule.msg, { name: raw.name }))
+    return
+  }
+  if (raw.size > rule.maxMB * 1024 * 1024) {
+    ElMessage.error(t('lessonForm.fileTooLarge', { name: raw.name, max: rule.maxMB }))
+    return
+  }
   list.push({ file: raw, name: raw.name, preview: URL.createObjectURL(raw) })
+  resourceError.value = ''
 }
 
 function removeNewFile(list, index) {
@@ -114,12 +186,36 @@ function removeExistingResource(category, resource) {
 }
 
 async function handleSubmit() {
+  suppressValidate.value = false
+
+  let valid = true
   try {
     await formRef.value.validate()
-  } catch { return }
+  } catch {
+    valid = false
+  }
 
   if (!isEdit.value && newThumbnails.value.length === 0) {
-    ElMessage.warning(t('lessonForm.thumbnailRequired'))
+    resourceError.value = t('lessonForm.thumbnailRequired')
+    valid = false
+  } else {
+    resourceError.value = ''
+  }
+
+  // Bai hoc dang VIDEO phai co video, dang DOCUMENT phai co tai lieu
+  const totalVideos = newVideos.value.length + existingResources.value.videos.length
+  const totalDocs = newDocuments.value.length + existingResources.value.documents.length
+  if (formData.lessonType === 'VIDEO' && totalVideos === 0) {
+    ElMessage.warning(t('lessonForm.videoRequired'))
+    valid = false
+  }
+  if (formData.lessonType === 'DOCUMENT' && totalDocs === 0) {
+    ElMessage.warning(t('lessonForm.documentRequired'))
+    valid = false
+  }
+
+  if (!valid) {
+    if (!resourceError.value) ElMessage.warning(t('validate.checkForm'))
     return
   }
 
@@ -164,6 +260,7 @@ function handleClose() {
     :title="dialogTitle"
     width="750px"
     :close-on-click-modal="false"
+    destroy-on-close
     @close="handleClose"
     id="dialog-lesson-form"
   >
@@ -205,7 +302,7 @@ function handleClose() {
       <el-divider content-position="left">{{ $t('lessonForm.resources') }}</el-divider>
 
       <!-- Thumbnails -->
-      <el-form-item :label="$t('lessonForm.thumbnails')">
+      <el-form-item :label="$t('lessonForm.thumbnails')" :required="!isEdit" :error="resourceError">
         <div class="resource-section">
           <div class="file-grid">
             <div v-for="res in existingResources.thumbnails" :key="res.id"
@@ -225,14 +322,14 @@ function handleClose() {
               <div class="badge new">{{ $t('badge.new') }}</div>
             </div>
           </div>
-          <el-upload :auto-upload="false" :show-file-list="false" accept="image/*" multiple @change="(f) => addFile(newThumbnails, f)">
+          <el-upload :auto-upload="false" :show-file-list="false" accept=".jpg,.jpeg,.png,.gif,.webp,.bmp" multiple @change="(f) => addFile(newThumbnails, f, 'image')">
             <el-button size="small"><el-icon><Picture /></el-icon> {{ $t('lessonForm.addImage') }}</el-button>
           </el-upload>
         </div>
       </el-form-item>
 
       <!-- Videos -->
-      <el-form-item label="Videos">
+      <el-form-item label="Videos" :required="formData.lessonType === 'VIDEO'">
         <div class="resource-section">
           <div class="file-list">
             <div v-for="res in existingResources.videos" :key="res.id" class="file-list-item"
@@ -252,14 +349,14 @@ function handleClose() {
               <el-button size="small" text type="danger" @click="removeNewFile(newVideos, i)">{{ $t('btn.delete') }}</el-button>
             </div>
           </div>
-          <el-upload :auto-upload="false" :show-file-list="false" accept="video/*" multiple @change="(f) => addFile(newVideos, f)">
+          <el-upload :auto-upload="false" :show-file-list="false" accept=".mp4,.webm,.ogg,.ogv,.mov,.avi,.mkv,.m4v" multiple @change="(f) => addFile(newVideos, f, 'video')">
             <el-button size="small"><el-icon><VideoPlay /></el-icon> {{ $t('lessonForm.addVideo') }}</el-button>
           </el-upload>
         </div>
       </el-form-item>
 
       <!-- Documents -->
-      <el-form-item :label="$t('detail.documents')">
+      <el-form-item :label="$t('detail.documents')" :required="formData.lessonType === 'DOCUMENT'">
         <div class="resource-section">
           <div class="file-list">
             <div v-for="res in existingResources.documents" :key="res.id" class="file-list-item">
@@ -274,7 +371,7 @@ function handleClose() {
               <el-button size="small" text type="danger" @click="removeNewFile(newDocuments, i)">{{ $t('btn.delete') }}</el-button>
             </div>
           </div>
-          <el-upload :auto-upload="false" :show-file-list="false" accept=".pdf,.doc,.docx,.ppt,.pptx" multiple @change="(f) => addFile(newDocuments, f)">
+          <el-upload :auto-upload="false" :show-file-list="false" accept=".pdf,.doc,.docx,.ppt,.pptx,.txt" multiple @change="(f) => addFile(newDocuments, f, 'document')">
             <el-button size="small"><el-icon><Document /></el-icon> {{ $t('lessonForm.addDocument') }}</el-button>
           </el-upload>
         </div>

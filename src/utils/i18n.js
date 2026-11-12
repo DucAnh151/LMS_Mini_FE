@@ -99,6 +99,12 @@ const messages = {
     'lessonForm.addVideo': 'Thêm video',
     'lessonForm.addDocument': 'Thêm tài liệu',
     'lessonForm.thumbnailRequired': 'Vui lòng tải lên ít nhất 1 thumbnail',
+    'lessonForm.invalidImage': 'File "{name}" không phải ảnh. Chỉ chấp nhận JPG, PNG, GIF, WEBP.',
+    'lessonForm.invalidVideo': 'File "{name}" không phải video. Chỉ chấp nhận MP4, WEBM, OGG, MOV, AVI, MKV.',
+    'lessonForm.invalidDocument': 'File "{name}" không hợp lệ. Chỉ chấp nhận PDF, DOC, DOCX, PPT, PPTX, TXT.',
+    'lessonForm.videoRequired': 'Bài học loại Video phải có ít nhất 1 file video',
+    'lessonForm.documentRequired': 'Bài học loại Tài liệu phải có ít nhất 1 file tài liệu',
+    'lessonForm.fileTooLarge': 'File "{name}" vượt quá {max}MB',
 
     // Lesson validation
     'lessonValidate.title': 'Vui lòng nhập tiêu đề',
@@ -136,6 +142,12 @@ const messages = {
     'enrollments.noStudentFound': 'Không tìm thấy học viên',
     'enrollments.searchCourse': 'Tìm khóa học...',
     'enrollments.transferCourse': 'Chuyển khóa',
+    'enrollments.transferNote': 'Học viên sẽ được chuyển sang khóa học mới. Đăng ký hiện tại KHÔNG bị xóa, chỉ đổi sang khóa học khác và giữ nguyên ngày đăng ký.',
+    'enrollments.transferConfirm': 'Chuyển học viên "{name}" từ khóa học "{from}" sang khóa học "{to}"?',
+    'enrollments.transferConfirmTitle': 'Xác nhận chuyển khóa học',
+    'enrollments.transferDone': 'Đã chuyển "{name}" sang khóa học "{to}"',
+    'enrollments.noTransferTarget': 'Không còn khóa học nào khác để chuyển',
+    'enrollments.transferSameCourse': 'Khóa học mới phải khác khóa học hiện tại',
 
     // Course students drawer
     'courseStudents.title': 'Học viên — {name}',
@@ -143,6 +155,7 @@ const messages = {
 
     // Table columns
     'col.id': 'ID',
+    'col.index': 'STT',
     'col.avatar': 'Avatar',
     'col.fullName': 'Họ và tên',
     'col.email': 'Email',
@@ -192,6 +205,12 @@ const messages = {
     'validate.phone': 'SĐT phải là 10-11 chữ số',
     'validate.durationRequired': 'Thời lượng phải lớn hơn 0',
     'validate.thumbnailRequired': 'Vui lòng tải lên ít nhất 1 thumbnail',
+    'validate.priceMin': 'Giá phải lớn hơn hoặc bằng 0',
+    'validate.identityRequired': 'Vui lòng nhập số CCCD/CMND',
+    'validate.phoneRequired': 'Vui lòng nhập số điện thoại',
+    'validate.birthDateFuture': 'Ngày sinh phải nhỏ hơn ngày hiện tại',
+    'validate.maxLength': 'Tối đa {max} ký tự',
+    'validate.checkForm': 'Vui lòng kiểm tra lại các trường bắt buộc',
 
     // Status
     'status.active': 'Hoạt động',
@@ -350,6 +369,12 @@ const messages = {
     'lessonForm.addVideo': 'Add Video',
     'lessonForm.addDocument': 'Add Document',
     'lessonForm.thumbnailRequired': 'Please upload at least 1 thumbnail',
+    'lessonForm.invalidImage': 'File "{name}" is not an image. Only JPG, PNG, GIF, WEBP are allowed.',
+    'lessonForm.invalidVideo': 'File "{name}" is not a video. Only MP4, WEBM, OGG, MOV, AVI, MKV are allowed.',
+    'lessonForm.invalidDocument': 'File "{name}" is not allowed. Only PDF, DOC, DOCX, PPT, PPTX, TXT are allowed.',
+    'lessonForm.videoRequired': 'A Video lesson needs at least 1 video file',
+    'lessonForm.documentRequired': 'A Document lesson needs at least 1 document file',
+    'lessonForm.fileTooLarge': 'File "{name}" exceeds {max}MB',
 
     // Lesson validation
     'lessonValidate.title': 'Please enter a title',
@@ -387,6 +412,12 @@ const messages = {
     'enrollments.noStudentFound': 'No students found',
     'enrollments.searchCourse': 'Search course...',
     'enrollments.transferCourse': 'Transfer',
+    'enrollments.transferNote': 'The student is moved to the new course. The enrollment is NOT deleted — only its course changes, the enrollment date is kept.',
+    'enrollments.transferConfirm': 'Move student "{name}" from course "{from}" to course "{to}"?',
+    'enrollments.transferConfirmTitle': 'Confirm course transfer',
+    'enrollments.transferDone': 'Moved "{name}" to course "{to}"',
+    'enrollments.noTransferTarget': 'No other course available to transfer to',
+    'enrollments.transferSameCourse': 'The new course must be different from the current one',
 
     // Course students drawer
     'courseStudents.title': 'Students — {name}',
@@ -394,6 +425,7 @@ const messages = {
 
     // Table columns
     'col.id': 'ID',
+    'col.index': 'No.',
     'col.avatar': 'Avatar',
     'col.fullName': 'Full Name',
     'col.email': 'Email',
@@ -443,6 +475,12 @@ const messages = {
     'validate.phone': 'Phone must be 10-11 digits',
     'validate.durationRequired': 'Duration must be greater than 0',
     'validate.thumbnailRequired': 'Please upload at least 1 thumbnail',
+    'validate.priceMin': 'Price must be greater than or equal to 0',
+    'validate.identityRequired': 'Please enter the ID number',
+    'validate.phoneRequired': 'Please enter the phone number',
+    'validate.birthDateFuture': 'Birth date must be in the past',
+    'validate.maxLength': 'Maximum {max} characters',
+    'validate.checkForm': 'Please check the required fields',
 
     // Status
     'status.active': 'Active',
