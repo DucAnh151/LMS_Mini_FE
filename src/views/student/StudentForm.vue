@@ -19,6 +19,8 @@ const formRef = ref(null)
 const loading = ref(false)
 const avatarFile = ref(null)
 const avatarPreview = ref('')
+// Avatar goc khi mo form sua -> de biet nguoi dung co xoa avatar khong
+const originalAvatarUrl = ref('')
 
 const isEdit = ref(false)
 const dialogTitle = ref('')
@@ -147,6 +149,7 @@ async function loadStudent(id) {
     })
     if (data.avatarUrl) {
       avatarPreview.value = data.avatarUrl
+      originalAvatarUrl.value = data.avatarUrl
     }
   } catch (e) {
     console.error(e)
@@ -160,6 +163,7 @@ function resetForm() {
   formData.gender = ''
   avatarFile.value = null
   avatarPreview.value = ''
+  originalAvatarUrl.value = ''
   formRef.value?.clearValidate()
 }
 
@@ -211,7 +215,11 @@ async function handleSubmit() {
   try {
     const payload = { ...formData }
     if (avatarFile.value) {
+      // Co chon anh moi -> gui anh (BE se thay the)
       payload.avatarImage = avatarFile.value
+    } else if (isEdit.value && originalAvatarUrl.value && !avatarPreview.value) {
+      // Da xoa avatar cu va khong chon anh moi -> bao BE xoa avatar
+      payload.removeAvatar = true
     }
     const fd = buildFormData(payload)
 

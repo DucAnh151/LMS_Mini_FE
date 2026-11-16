@@ -232,7 +232,7 @@ function handleSortChange({ prop, order }) {
         <el-form-item :label="$t('col.priceFrom')">
           <el-input-number
             v-model="queryParams.minPrice"
-            :placeholder="$t('col.priceFrom')"
+            placeholder="1.000 VND"
             :min="0"
             :controls="false"
             style="width: 130px"
@@ -241,7 +241,7 @@ function handleSortChange({ prop, order }) {
         <el-form-item :label="$t('col.priceTo')">
           <el-input-number
             v-model="queryParams.maxPrice"
-            :placeholder="$t('col.priceTo')"
+            placeholder="100.000 VND"
             :min="0"
             :controls="false"
             style="width: 130px"

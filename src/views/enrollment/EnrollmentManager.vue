@@ -24,6 +24,14 @@ const studentQuery = reactive({
 })
 const studentTotal = ref(0)
 
+// Anh loi/khong co -> hien avatar mac dinh (icon User)
+const brokenImages = ref(new Set())
+function handleImageError(url) {
+  const next = new Set(brokenImages.value)
+  next.add(url)
+  brokenImages.value = next
+}
+
 async function fetchStudents() {
   studentLoading.value = true
   try {
@@ -289,6 +297,15 @@ onMounted(fetchStudents)
 
         <!-- Selected student card -->
         <div v-if="selectedStudent" class="selected-student-card">
+          <div class="student-avatar lg">
+            <img
+              v-if="selectedStudent.avatarUrl && !brokenImages.has(selectedStudent.avatarUrl)"
+              :src="selectedStudent.avatarUrl"
+              alt="Avatar"
+              @error="handleImageError(selectedStudent.avatarUrl)"
+            />
+            <el-icon v-else><User /></el-icon>
+          </div>
           <div class="student-info">
             <span class="student-name">{{ selectedStudent.fullName }}</span>
             <span class="student-email">{{ selectedStudent.email }}</span>
@@ -317,6 +334,15 @@ onMounted(fetchStudents)
               class="student-item"
               @click="selectStudent(s)"
             >
+              <div class="student-avatar">
+                <img
+                  v-if="s.avatarUrl && !brokenImages.has(s.avatarUrl)"
+                  :src="s.avatarUrl"
+                  alt="Avatar"
+                  @error="handleImageError(s.avatarUrl)"
+                />
+                <el-icon v-else><User /></el-icon>
+              </div>
               <div class="student-item-info">
                 <span class="student-item-name">{{ s.fullName }}</span>
                 <span class="student-item-email">{{ s.email }}</span>
@@ -656,10 +682,44 @@ onMounted(fetchStudents)
   border: 1px solid rgba(102, 126, 234, 0.2);
 }
 
+.selected-student-card {
+  gap: 12px;
+}
+
 .student-info {
   display: flex;
   flex-direction: column;
   gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+
+/* Avatar */
+.student-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  overflow: hidden;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-input);
+  border: 1px solid var(--border-color);
+  color: var(--text-muted);
+  font-size: 18px;
+}
+
+.student-avatar.lg {
+  width: 44px;
+  height: 44px;
+  font-size: 22px;
+}
+
+.student-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 .student-name {
@@ -690,7 +750,7 @@ onMounted(fetchStudents)
 .student-item {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  gap: 10px;
   padding: 10px 12px;
   border-radius: var(--border-radius-sm);
   cursor: pointer;
@@ -707,6 +767,15 @@ onMounted(fetchStudents)
   display: flex;
   flex-direction: column;
   gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+
+.student-item-name,
+.student-item-email {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .student-item-name {
