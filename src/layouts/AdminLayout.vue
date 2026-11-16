@@ -242,32 +242,28 @@ function toggleFullscreen() {
 
 .sidebar-menu .el-menu-item {
   border-radius: var(--border-radius-sm);
-  margin-bottom: 4px;
-  height: 44px;
-  line-height: 44px;
+  margin-bottom: 6px;
+  height: 46px;
+  line-height: 46px;
+  font-weight: 500;
   transition: all var(--transition-fast);
 }
 
 .sidebar-menu .el-menu-item:hover {
-  background: rgba(102, 126, 234, 0.08) !important;
+  background: rgba(109, 92, 245, 0.1) !important;
+  color: var(--text-accent) !important;
+  transform: translateX(3px);
 }
 
 .sidebar-menu .el-menu-item.is-active {
-  background: rgba(102, 126, 234, 0.12) !important;
-  color: #667eea !important;
+  background: var(--gradient-primary) !important;
+  color: #fff !important;
   font-weight: 600;
+  box-shadow: var(--shadow-colored);
 }
 
-.sidebar-menu .el-menu-item.is-active::before {
-  content: '';
-  position: absolute;
-  left: 0;
-  top: 50%;
-  transform: translateY(-50%);
-  width: 3px;
-  height: 20px;
-  background: var(--gradient-primary);
-  border-radius: 0 3px 3px 0;
+.sidebar-menu .el-menu-item.is-active .el-icon {
+  color: #fff !important;
 }
 
 .sidebar-footer {

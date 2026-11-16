@@ -160,6 +160,9 @@ async function loadCourse(id) {
       existingThumbnails.value = data.resources
         .filter(r => r.status === 'ACTIVE' && r.resourceType === 'THUMBNAIL')
         .map(r => ({ ...r }))
+      // Khởi tạo primary hiện tại làm lựa chọn ban đầu (một nguồn sự thật duy nhất)
+      const primary = existingThumbnails.value.find(r => r.isPrimary)
+      chosenPrimaryThumbnailId.value = primary ? primary.id : null
     }
   } catch (e) {
     console.error(e)
@@ -215,8 +218,10 @@ function removeNewThumbnail(index) {
 function removeExistingThumbnail(thumb) {
   deletedThumbnailIds.value.push(thumb.id)
   existingThumbnails.value = existingThumbnails.value.filter(t => t.id !== thumb.id)
+  // Nếu xóa đúng ảnh đang là primary -> chuyển sang ảnh còn lại (nếu có)
   if (chosenPrimaryThumbnailId.value === thumb.id) {
-    chosenPrimaryThumbnailId.value = null
+    const next = existingThumbnails.value[0]
+    chosenPrimaryThumbnailId.value = next ? next.id : null
   }
 }
 
@@ -393,12 +398,12 @@ function handleClose() {
             v-for="thumb in existingThumbnails"
             :key="thumb.id"
             class="thumb-item"
-            :class="{ 'is-primary': thumb.isPrimary || chosenPrimaryThumbnailId === thumb.id }"
+            :class="{ 'is-primary': chosenPrimaryThumbnailId === thumb.id }"
           >
             <img :src="thumb.url" alt="Thumbnail" />
             <div class="thumb-actions">
               <el-tooltip :content="$t('btn.setPrimary')" placement="top">
-                <button type="button" class="thumb-action-btn" @click="setPrimaryThumbnail(thumb.id)">
+                <button type="button" class="thumb-action-btn" :class="{ active: chosenPrimaryThumbnailId === thumb.id }" @click="setPrimaryThumbnail(thumb.id)">
                   <el-icon><StarFilled /></el-icon>
                 </button>
               </el-tooltip>
@@ -408,7 +413,7 @@ function handleClose() {
                 </button>
               </el-tooltip>
             </div>
-            <div v-if="thumb.isPrimary || chosenPrimaryThumbnailId === thumb.id" class="primary-badge">
+            <div v-if="chosenPrimaryThumbnailId === thumb.id" class="primary-badge">
               {{ $t('badge.primary') }}
             </div>
           </div>
@@ -538,6 +543,14 @@ function handleClose() {
 
 .thumb-action-btn.danger:hover {
   background: rgba(245, 54, 92, 0.8);
+}
+
+.thumb-action-btn.active {
+  background: #f5a623;
+  color: #fff;
+}
+.thumb-action-btn.active:hover {
+  background: #f5a623;
 }
 
 .primary-badge,

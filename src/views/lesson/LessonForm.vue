@@ -101,6 +101,11 @@ async function loadLesson(id) {
       thumbnails: (data.thumbnails || []).filter(r => r.status === 'ACTIVE'),
       documents: (data.documents || []).filter(r => r.status === 'ACTIVE')
     }
+    // Khởi tạo primary hiện tại làm lựa chọn ban đầu (một nguồn sự thật duy nhất)
+    const primaryVideo = existingResources.value.videos.find(r => r.isPrimary)
+    chosenPrimaryVideoId.value = primaryVideo ? primaryVideo.id : null
+    const primaryThumb = existingResources.value.thumbnails.find(r => r.isPrimary)
+    chosenPrimaryThumbnailId.value = primaryThumb ? primaryThumb.id : null
   } catch (e) {
     console.error(e)
   } finally {
@@ -183,6 +188,16 @@ function removeNewFile(list, index) {
 function removeExistingResource(category, resource) {
   deletedResourceIds.value.push(resource.id)
   existingResources.value[category] = existingResources.value[category].filter(r => r.id !== resource.id)
+
+  // Nếu xóa đúng resource đang là primary -> chuyển primary sang cái còn lại (nếu có)
+  if (category === 'videos' && chosenPrimaryVideoId.value === resource.id) {
+    const next = existingResources.value.videos[0]
+    chosenPrimaryVideoId.value = next ? next.id : null
+  }
+  if (category === 'thumbnails' && chosenPrimaryThumbnailId.value === resource.id) {
+    const next = existingResources.value.thumbnails[0]
+    chosenPrimaryThumbnailId.value = next ? next.id : null
+  }
 }
 
 async function handleSubmit() {
@@ -306,13 +321,16 @@ function handleClose() {
         <div class="resource-section">
           <div class="file-grid">
             <div v-for="res in existingResources.thumbnails" :key="res.id"
-              class="file-item" :class="{ 'is-primary': res.isPrimary || chosenPrimaryThumbnailId === res.id }">
+              class="file-item" :class="{ 'is-primary': chosenPrimaryThumbnailId === res.id }">
               <img :src="res.url" alt="Thumbnail" />
               <div class="file-overlay">
-                <button type="button" @click="chosenPrimaryThumbnailId = res.id" class="file-btn"><el-icon><StarFilled /></el-icon></button>
+                <el-tooltip :content="$t('btn.setPrimary')" placement="top">
+                  <button type="button" @click="chosenPrimaryThumbnailId = res.id" class="file-btn"
+                    :class="{ active: chosenPrimaryThumbnailId === res.id }"><el-icon><StarFilled /></el-icon></button>
+                </el-tooltip>
                 <button type="button" @click="removeExistingResource('thumbnails', res)" class="file-btn danger"><el-icon><Delete /></el-icon></button>
               </div>
-              <div v-if="res.isPrimary || chosenPrimaryThumbnailId === res.id" class="badge primary">{{ $t('badge.primary') }}</div>
+              <div v-if="chosenPrimaryThumbnailId === res.id" class="badge primary">{{ $t('badge.primary') }}</div>
             </div>
             <div v-for="(f, i) in newThumbnails" :key="'nt'+i" class="file-item new-file">
               <img :src="f.preview" alt="New" />
@@ -333,12 +351,18 @@ function handleClose() {
         <div class="resource-section">
           <div class="file-list">
             <div v-for="res in existingResources.videos" :key="res.id" class="file-list-item"
-              :class="{ 'is-primary': res.isPrimary || chosenPrimaryVideoId === res.id }">
+              :class="{ 'is-primary': chosenPrimaryVideoId === res.id }">
               <el-icon><VideoPlay /></el-icon>
               <span class="file-name">{{ res.fileName }}</span>
-              <el-tag v-if="res.isPrimary || chosenPrimaryVideoId === res.id" type="info" size="small">{{ $t('badge.primary') }}</el-tag>
+              <el-tag v-if="chosenPrimaryVideoId === res.id" type="info" size="small">{{ $t('badge.primary') }}</el-tag>
               <div class="file-list-actions">
-                <el-button size="small" text @click="chosenPrimaryVideoId = res.id">{{ $t('btn.setPrimary') }}</el-button>
+                <el-button size="small"
+                  :type="chosenPrimaryVideoId === res.id ? 'primary' : ''"
+                  :text="chosenPrimaryVideoId !== res.id"
+                  :disabled="chosenPrimaryVideoId === res.id"
+                  @click="chosenPrimaryVideoId = res.id">
+                  {{ chosenPrimaryVideoId === res.id ? $t('badge.primary') : $t('btn.setPrimary') }}
+                </el-button>
                 <el-button size="small" text type="danger" @click="removeExistingResource('videos', res)">{{ $t('btn.delete') }}</el-button>
               </div>
             </div>
@@ -449,6 +473,8 @@ function handleClose() {
 }
 
 .file-btn.danger:hover { background: rgba(245, 54, 92, 0.8); }
+.file-btn.active { background: #f5a623; color: #fff; }
+.file-btn.active:hover { background: #f5a623; }
 
 .badge {
   position: absolute;

@@ -229,19 +229,19 @@ function handleSortChange({ prop, order }) {
             <el-option :label="$t('level.advanced')" value="ADVANCED" />
           </el-select>
         </el-form-item>
-        <el-form-item>
+        <el-form-item :label="$t('col.priceFrom')">
           <el-input-number
             v-model="queryParams.minPrice"
-            :placeholder="$t('col.price')"
+            :placeholder="$t('col.priceFrom')"
             :min="0"
             :controls="false"
             style="width: 130px"
           />
         </el-form-item>
-        <el-form-item>
+        <el-form-item :label="$t('col.priceTo')">
           <el-input-number
             v-model="queryParams.maxPrice"
-            :placeholder="$t('col.price')"
+            :placeholder="$t('col.priceTo')"
             :min="0"
             :controls="false"
             style="width: 130px"
