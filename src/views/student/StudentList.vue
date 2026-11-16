@@ -236,12 +236,12 @@ function handleSortChange({ prop, order }) {
         style="width: 100%"
         id="table-students"
       >
-        <el-table-column :label="$t('col.index')" width="60" align="center" fixed>
+        <el-table-column :label="$t('col.index')" width="60" align="center">
           <template #default="{ $index }">
             <span class="row-index">{{ queryParams.page * queryParams.size + $index + 1 }}</span>
           </template>
         </el-table-column>
-        <el-table-column prop="id" label="ID" width="70" sortable="custom" />
+        <el-table-column prop="id" label="ID" min-width="80" sortable="custom" />
         <el-table-column :label="$t('col.avatar')" width="80" align="center">
           <template #default="{ row }">
             <div class="avatar-cell">
@@ -258,24 +258,24 @@ function handleSortChange({ prop, order }) {
             </div>
           </template>
         </el-table-column>
-        <el-table-column prop="fullName" :label="$t('col.fullName')" width="180" sortable="custom">
+        <el-table-column prop="fullName" :label="$t('col.fullName')" min-width="180" sortable="custom">
           <template #default="{ row }">
             <span class="text-highlight">{{ row.fullName }}</span>
           </template>
         </el-table-column>
-        <el-table-column prop="email" :label="$t('col.email')" width="220" />
-        <el-table-column prop="phoneNumber" :label="$t('col.phone')" width="130" />
-        <el-table-column prop="birthDate" :label="$t('col.birthDate')" width="120">
+        <el-table-column prop="email" :label="$t('col.email')" min-width="220" show-overflow-tooltip />
+        <el-table-column prop="phoneNumber" :label="$t('col.phone')" min-width="130" />
+        <el-table-column prop="birthDate" :label="$t('col.birthDate')" min-width="120">
           <template #default="{ row }">
             {{ formatDate(row.birthDate) }}
           </template>
         </el-table-column>
-        <el-table-column prop="gender" :label="$t('col.gender')" width="100">
+        <el-table-column prop="gender" :label="$t('col.gender')" min-width="100">
           <template #default="{ row }">
             {{ getGenderLabel(row.gender) }}
           </template>
         </el-table-column>
-        <el-table-column prop="address" :label="$t('col.address')" width="150" show-overflow-tooltip />
+        <el-table-column prop="address" :label="$t('col.address')" min-width="150" show-overflow-tooltip />
         <el-table-column prop="status" :label="$t('col.status')" width="120" align="center">
           <template #default="{ row }">
             <el-tag :type="statusTagType[row.status]" size="small" round>
@@ -399,8 +399,13 @@ function handleSortChange({ prop, order }) {
 }
 
 .table-card {
-  overflow-x: auto;
-  overflow-y: visible;
+  overflow: hidden;
+}
+
+/* Khi thu nhỏ màn hình, bảng giữ nguyên bề rộng tối thiểu và xuất hiện
+   thanh cuộn ngang bên trong el-table — mọi cột (kể cả STT, ID) cuộn cùng nhau */
+.table-card :deep(.el-table) {
+  width: 100%;
 }
 
 .row-index {
